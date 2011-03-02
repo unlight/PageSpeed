@@ -1,0 +1,126 @@
+DESCRIPTION
+===========
+Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme.txt for details.
+
+BEFORE INSTALL DISABLE ALL OTHER PLUGINS WHICH DOING THE SAME (such as Minify, etc.)
+
+WHAT THIS PLUGIN DO?
+====================
+Try to apply Google web performance best practices.
+http://code.google.com/speed/page-speed/docs/rules_intro.html
+
+## GOOGLE WEB PERFORMANCE BEST PRACTICES
+
+Combine external CSS		[TODO]
+Minify CSS					[DONE]
+Avoid CSS @import			[DONE]
+Combine external JavaScript [DONE]
+Minify JavaScript			[DONE]
+Enable compression			[DONE, SERVER JOB]
+Leverage browser caching	[SERVER JOB]
+Parallelize downloads across hostnames	[TODO]
+Remove unused CSS			[DEVELOPER JOB]
+Use efficient CSS selectors	[VANILLA ALREADY]
+Minify HTML					[VANILLA ALREADY]
+Optimize images				[DEVELOPER JOB]
+Specify image dimensions	[DEVELOPER JOB]
+Avoid bad requests			[DEVELOPER JOB]
+Combine images into CSS sprites	[TODO, DEVELOPER JOB]
+Inline Small CSS			[NO NEED]
+Inline Small JavaScript		[NO NEED]
+Minimize DNS lookups		[VANILLA USE URL PATHS]
+Minimize redirects			[?]
+Minimize request size		[VANILLA IS GOOD HERE]
+Optimize the order of styles and scripts	[VANILLA ALREADY]
+Specify a Vary: Accept-Encoding header		[SERVER JOB]
+Prefer asynchronous resources				[?]
+Put CSS in the document head				[VANILLA ALREADY]
+Remove query strings from static resources	[DONE]
+Serve resources from a consistent URL		[?]
+Serve scaled images							[?]
+Specify a cache validator					[?]
+Specify a character set early				[?]
+Defer loading of JavaScript					[?]
+
+
+WHAT THIS PLUGIN CAN DO?
+========================
+
+1. Loads JQuery library from CDN Google server.
+
+2. Minify JavaScript
+	WARINING! Javascript files minifed by remote service http://marijnhaverbeke.nl/uglifyjs
+	Your web-server must support sockets or curl library.
+	UglifyJS is a JavaScript parser / mangler / compressor / beautifier library for NodeJS.
+	
+3. Combine external JavaScript
+	Combined in three groups library, applications and plugins.
+	
+4. Avoid CSS @import
+	If you have custom theme. You may have such style.css, for example:
+	@import url('reset.css');
+	@import url('typography.css');
+	@import url('menu.css');
+	@import url('activity.css');
+	@import url('errors.css');
+	
+	All these css files will be merge to one.
+	
+5. Enable compression
+	Usually it is server job. Apache/mod_deflate
+	If your server has deflate_module add in .htaccess file:
+	<IfModule mod_deflate.c>
+		<FilesMatch "\.(css|js)$">
+			SetOutputFilter DEFLATE 
+		</FilesMatch>
+	</IfModule>
+	
+	If no deflate_module, add following lines in your .htaccess file to enable compression
+	for CSS and JS files:
+	<FilesMatch "\.(css|js)$">
+		ForceType application/x-httpd-php
+		php_value auto_prepend_file "/absolute/path/to/vanilla/plugins/PageSpeed/gzip.handler.php"
+	</FilesMatch>
+
+
+CONFIGURATION (DEFAULTS)
+========================
+
+$Configuration['Plugins']['PageSpeed']['IgnoreDebug'] = False;
+Normally Page Speed do something only on production server. You can change this.
+
+$Configuration['Plugins']['PageSpeed']['MinifyCss'] = True;
+Compress css code.
+
+
+POSSIBLE PROBLEMS
+=================
+1.	If you installed vanilla into directory you may have problems with images in css.
+	Maybe other errors (No such file).
+
+2.	Remote compression javascript code service can be down.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
