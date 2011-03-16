@@ -3,8 +3,8 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme.txt for details.',
-	'Version' => '1.2.12',
-	'Date' => '2 Mar 2011',
+	'Version' => '1.3.14',
+	'Date' => '16 Mar 2011',
 	'Author' => 'S',
 	'AuthorUrl' => 'http://www.google.com',
 	'RequiredApplications' => False,
@@ -23,11 +23,11 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		return $Array;
 	}
 	
-	// TODO: combine, can be mixed livequery / global etc.
 	protected static function HashSumFiles($Files) {
+		$Files = array_unique($Files);
 		$HashSum = array_sum(array_map('crc32', $Files));
-		d($HashSum);
-		////$Files
+		$NewHash = sprintf('%u', crc32($HashSum));
+		return $NewHash;
 	}
 	
 	public function HeadModule_BeforeToString_Handler($Head) {
@@ -41,6 +41,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		$RemoveIndex = array();
 		
 		$Tags = $Head->Tags();
+		usort($Tags, array('HeadModule', 'TagCmp')); // BeforeToString fires before sort
 		
 		foreach ($Tags as $Index => &$Tag) {
 			// JavaScript (script tag)
@@ -78,6 +79,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				}
 				
 				$GroupName = self::GetGroupName($Path);
+				// TODO: Add news library js (v2.1.0)
 				if ($GroupName == 'js' || 
 					in_array($Basename, array('global.js', 'queue.js', 'slice.js'))) $GroupName = 'library';
 				elseif ($GroupName == 'themes') $GroupName = 'plugins';
@@ -102,6 +104,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				
 				
 				$CachedFilePath = "cache/ps/{$Hash}.$Basename";
+				
 				// OLD
 				//$Filename = pathinfo($Basename, PATHINFO_FILENAME);
 				//if (substr($Filename, 0, 2) != '__') $Filename = '__'.$Filename;
@@ -119,9 +122,8 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 							$UrlImage = trim($UrlImage, '"\'');
 							if ($UrlImage[0] == '/' || self::IsUrl($UrlImage)) continue;
 							$File = dirname($FilePath).'/'.$UrlImage;
-							$ImageFilepath = realpath($File);
-							if (!$ImageFilepath) trigger_error("Error while fix background image url path. No such file ($File).");
-							$Asset = Asset(substr($ImageFilepath, strlen(PATH_ROOT)+1));
+							if (!file_exists($File)) trigger_error("Error while fix background image url path. No such file ($File).");
+							$Asset = Asset(substr($File, strlen(PATH_ROOT)+1));
 							$CssText = str_replace($Match[0][$N], "url($Asset)", $CssText);
 						}
 					}
@@ -134,6 +136,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				
 				$GroupName = self::GetGroupName($Path);
 				// combine in two group applications and plugins
+				// TODO: ATTENTION! "screen" changed to "all" in unstable
 				if (GetValue('media', $Tag) == 'screen') {
 					if (!isset($CssTag)) $CssTag = $Tag;
 					if (!in_array($GroupName, array('plugins', 'applications'))) 
@@ -153,9 +156,8 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		if (count($CombinedCss) > 0) {
 			foreach ($CombinedCss as $Group => $Files) {
 				$RemoveIndex[] = array_keys($Files);
-				$Files = array_values(array_unique($Files));
-				$Hash = Crc32Value($Files);
-				$CachedFilePath = "cache/ps/combined.{$Group}.{$Hash}.css";
+				$Hash = self::HashSumFiles($Files);
+				$CachedFilePath = "cache/ps/{$Group}.{$Hash}.css";
 				if (!file_exists($CachedFilePath)) {
 					$Combined = '';
 					foreach ($Files as $Index => $File) {
@@ -168,13 +170,12 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			}
 			
 		}
-		
+		// TODO: IF ONE FILE IN GROUP NO NEED TO PARSE/COMBINE IT
 		if (count($CombinedJavascript) > 1) {
 			foreach ($CombinedJavascript as $Group => $Files) {
 				$RemoveIndex[] = array_keys($Files);
-				$Files = array_values(array_unique($Files));
-				$Hash = Crc32Value($Files);
-				$CachedFilePath = "cache/ps/combined.{$Group}.{$Hash}.js";
+				$Hash = self::HashSumFiles($Files);
+				$CachedFilePath = "cache/ps/{$Group}.{$Hash}.js";
 				if (!file_exists($CachedFilePath)) {
 					$Combined = '';
 					foreach ($Files as $Index => $File) {
@@ -202,28 +203,23 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		return $GroupName;
 	}
 	
-	protected static function MinifyCssFile($Filepath) {
-		return self::MinifyCssText(file_get_contents($Filepath));
-	}
-	
-	protected static function MinifyCssText($Text) {
-		return self::StaticMinify($Text);
-	}
-	
 	protected static function StaticMinify($Css) {
 		# credit: http://www.lateralcode.com/css-minifier/
 		$Css = preg_replace('#\s+#', ' ', $Css);
-		$Css = preg_replace('#/\*.*?\*/#s', '', $Css);
+		// credit: http://code-snippets.co.cc/Site-optimization/Dynamically-compress-css-and-javascript-files
+		$Css = preg_replace('!/\*[^*]*\*+([^/][^*]*\*+)*/!', '', $Css);
+		$Css = preg_replace('/(\/\/.*)/', '', $Css);
+		
 		$Css = preg_replace('#([;:{},]) #', '\1', $Css);
 	
 		$Replace = array(
 			' {' => '{',
-			';}' => '}',
+			';}' => "}\n",
 			' 0px' => ' 0',
 			':0px' => ':0',
 			' !important' => '!important',
 		);
-		
+
 		$Css = str_replace(array_keys($Replace), array_values($Replace), $Css);
 		return trim($Css);
 	}
@@ -261,6 +257,14 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 	public function Setup() {
 		if (!is_dir('cache/ps')) mkdir('cache/ps', 0777, True);
 		
+	}
+	
+	protected static function MinifyCssFile($Filepath) {
+		return self::MinifyCssText(file_get_contents($Filepath));
+	}
+	
+	protected static function MinifyCssText($Text) {
+		return self::StaticMinify($Text);
 	}
 }
 
