@@ -11,7 +11,7 @@ http://code.google.com/speed/page-speed/docs/rules_intro.html
 
 ## GOOGLE WEB PERFORMANCE BEST PRACTICES
 
-Combine external CSS		[TODO]
+Combine external CSS		[DONE]
 Minify CSS					[DONE]
 Avoid CSS @import			[DONE]
 Combine external JavaScript [DONE]

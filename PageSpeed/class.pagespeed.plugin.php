@@ -23,6 +23,13 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		return $Array;
 	}
 	
+	// TODO: combine, can be mixed livequery / global etc.
+	protected static function HashSumFiles($Files) {
+		$HashSum = array_sum(array_map('crc32', $Files));
+		d($HashSum);
+		////$Files
+	}
+	
 	public function HeadModule_BeforeToString_Handler($Head) {
 		
 		$Configuration = C('Plugins.PageSpeed');
@@ -216,7 +223,6 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			':0px' => ':0',
 			' !important' => '!important',
 		);
-		if (defined('DEBUG')) $Replace['}'] = "}\n";
 		
 		$Css = str_replace(array_keys($Replace), array_values($Replace), $Css);
 		return trim($Css);
