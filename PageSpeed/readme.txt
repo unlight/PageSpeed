@@ -40,8 +40,7 @@ Serve resources from a consistent URL		[?]
 Serve scaled images							[?]
 Specify a cache validator					[?]
 Specify a character set early				[?]
-Defer loading of JavaScript					[?]
-
+Defer loading of JavaScript (Put JavaScript at bottom)		[TODO]
 
 WHAT THIS PLUGIN CAN DO?
 ========================
