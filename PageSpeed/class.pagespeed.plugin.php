@@ -3,8 +3,8 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme.txt for details.',
-	'Version' => '1.3.14',
-	'Date' => '16 Mar 2011',
+	'Version' => '1.3.15',
+	'Date' => '18 Mar 2011',
 	'Author' => 'S',
 	'AuthorUrl' => 'http://www.google.com',
 	'RequiredApplications' => False,
@@ -203,25 +203,43 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		return $GroupName;
 	}
 	
-	protected static function StaticMinify($Css) {
-		# credit: http://www.lateralcode.com/css-minifier/
-		$Css = preg_replace('#\s+#', ' ', $Css);
-		// credit: http://code-snippets.co.cc/Site-optimization/Dynamically-compress-css-and-javascript-files
-		$Css = preg_replace('!/\*[^*]*\*+([^/][^*]*\*+)*/!', '', $Css);
-		$Css = preg_replace('/(\/\/.*)/', '', $Css);
+	// protected static function __StaticMinify($Css) {
+		// # credit: http://www.lateralcode.com/css-minifier/
+		// $Css = preg_replace('#\s+#', ' ', $Css);
+		// // credit: http://code-snippets.co.cc/Site-optimization/Dynamically-compress-css-and-javascript-files
+		// $Css = preg_replace('!/\*[^*]*\*+([^/][^*]*\*+)*/!', '', $Css);
+		// $Css = preg_replace('/(\/\/.*)/', '', $Css);
 		
-		$Css = preg_replace('#([;:{},]) #', '\1', $Css);
+		// $Css = preg_replace('#([;:{},]) #', '\1', $Css);
 	
-		$Replace = array(
-			' {' => '{',
-			';}' => "}\n",
-			' 0px' => ' 0',
-			':0px' => ':0',
-			' !important' => '!important',
-		);
+		// $Replace = array(
+			// ' {' => '{',
+			// ';}' => "}\n",
+			// ' 0px' => ' 0',
+			// ':0px' => ':0',
+			// ' !important' => '!important',
+		// );
 
-		$Css = str_replace(array_keys($Replace), array_values($Replace), $Css);
-		return trim($Css);
+		// $Css = str_replace(array_keys($Replace), array_values($Replace), $Css);
+		// return trim($Css);
+	// }
+	
+	protected static function StaticMinify($data) {
+		// credit: http://shinylittlething.com/2010/01/20/css-minification-on-the-fly/
+		$data = preg_replace( '#/\*.*?\*/#s', '', $data );
+		$data = preg_replace('/(\/\/.*\n)/', '', $data);
+		// Replace multi spaces with singles, Remove empty rules, Remove whitespace around selectors and braces, Remove whitespace at end of rule
+		$data = preg_replace('/(\s+)/', ' ', $data);
+		$data = preg_replace('/[^}{]+{\s?}/', '', $data);
+		$data = preg_replace('/\s*{\s*/', '{', $data);
+		$data = preg_replace('/\s*}\s*/', '}', $data);
+		// Just for clarity, make every rules 1 line tall
+		$data = preg_replace('/}/', "}\n", $data);
+		$data = str_replace( ';}', '}', $data );
+		$data = str_replace( ', ', ',', $data );
+		$data = str_replace( '; ', ';', $data );
+		$data = str_replace( ': ', ':', $data );
+		$data = preg_replace( '#\s+#', ' ', $data );
 	}
 	
 	protected static function ProcessImportCssText($CssText = '', $Filepath) {
