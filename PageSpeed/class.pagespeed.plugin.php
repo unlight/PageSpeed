@@ -203,27 +203,6 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		return $GroupName;
 	}
 	
-	// protected static function __StaticMinify($Css) {
-		// # credit: http://www.lateralcode.com/css-minifier/
-		// $Css = preg_replace('#\s+#', ' ', $Css);
-		// // credit: http://code-snippets.co.cc/Site-optimization/Dynamically-compress-css-and-javascript-files
-		// $Css = preg_replace('!/\*[^*]*\*+([^/][^*]*\*+)*/!', '', $Css);
-		// $Css = preg_replace('/(\/\/.*)/', '', $Css);
-		
-		// $Css = preg_replace('#([;:{},]) #', '\1', $Css);
-	
-		// $Replace = array(
-			// ' {' => '{',
-			// ';}' => "}\n",
-			// ' 0px' => ' 0',
-			// ':0px' => ':0',
-			// ' !important' => '!important',
-		// );
-
-		// $Css = str_replace(array_keys($Replace), array_values($Replace), $Css);
-		// return trim($Css);
-	// }
-	
 	protected static function StaticMinify($data) {
 		// credit: http://shinylittlething.com/2010/01/20/css-minification-on-the-fly/
 		$data = preg_replace( '#/\*.*?\*/#s', '', $data );
