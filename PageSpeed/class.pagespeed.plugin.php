@@ -120,7 +120,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 					if (preg_match_all('/url\((.+?)\)/', $CssText, $Match)) {
 						foreach($Match[1] as $N => $UrlImage) {
 							$UrlImage = trim($UrlImage, '"\'');
-							if ($UrlImage[0] == '/' || self::IsUrl($UrlImage)) continue;
+							if ($UrlImage[0] == '/' || self::IsUrl($UrlImage) || substr($UrlImage, 0, 5) == 'data:') continue;
 							$File = dirname($FilePath).'/'.$UrlImage;
 							if (!file_exists($File)) trigger_error("Error while fix background image url path. No such file ($File).");
 							$Asset = Asset(substr($File, strlen(PATH_ROOT)+1));
@@ -203,22 +203,22 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		return $GroupName;
 	}
 	
-	protected static function StaticMinify($data) {
-		// credit: http://shinylittlething.com/2010/01/20/css-minification-on-the-fly/
-		$data = preg_replace( '#/\*.*?\*/#s', '', $data );
-		$data = preg_replace('/(\/\/.*\n)/', '', $data);
-		// Replace multi spaces with singles, Remove empty rules, Remove whitespace around selectors and braces, Remove whitespace at end of rule
-		$data = preg_replace('/(\s+)/', ' ', $data);
-		$data = preg_replace('/[^}{]+{\s?}/', '', $data);
-		$data = preg_replace('/\s*{\s*/', '{', $data);
-		$data = preg_replace('/\s*}\s*/', '}', $data);
-		// Just for clarity, make every rules 1 line tall
-		$data = preg_replace('/}/', "}\n", $data);
-		$data = str_replace( ';}', '}', $data );
-		$data = str_replace( ', ', ',', $data );
-		$data = str_replace( '; ', ';', $data );
-		$data = str_replace( ': ', ':', $data );
-		$data = preg_replace( '#\s+#', ' ', $data );
+	protected static function StaticMinify($css) {
+		// creadit: http://www.phpsnippets.info/compress-css-files-using-php
+		/* remove comments */
+		$css = preg_replace('!/\*[^*]*\*+([^/][^*]*\*+)*/!', '', $css);
+		/* remove tabs, spaces, newlines, etc. */
+		$css = str_replace(array("\r\n", "\r", "\n", "\t", '  ', '    ', '    '), '', $css);
+		$css = str_replace( '; ', ';', $css );
+		$css = str_replace( ': ', ':', $css );
+		$css = str_replace( ' {', '{', $css );
+		$css = str_replace( '{ ', '{', $css );
+		$css = str_replace( ', ', ',', $css );
+		$css = str_replace( '} ', '}', $css );
+		$css = str_replace( ';}', "}\n", $css );
+		$css = trim($css);
+		return $css;
+
 	}
 	
 	protected static function ProcessImportCssText($CssText = '', $Filepath) {
