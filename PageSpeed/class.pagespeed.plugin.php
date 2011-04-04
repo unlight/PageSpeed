@@ -204,11 +204,13 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 	}
 	
 	protected static function StaticMinify($css) {
+		//$css = str_replace('  ', ' ', $css);
 		// creadit: http://www.phpsnippets.info/compress-css-files-using-php
 		/* remove comments */
 		$css = preg_replace('!/\*[^*]*\*+([^/][^*]*\*+)*/!', '', $css);
 		/* remove tabs, spaces, newlines, etc. */
-		$css = str_replace(array("\r\n", "\r", "\n", "\t", '  ', '    ', '    '), '', $css);
+		//$css = str_replace(array("\r\n", "\r", "\n", "\t", '  ', '    ', '    '), '', $css);
+		$css = preg_replace('/\s+/', ' ', $css); // my
 		$css = str_replace( '; ', ';', $css );
 		$css = str_replace( ': ', ':', $css );
 		$css = str_replace( ' {', '{', $css );
@@ -218,7 +220,6 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		$css = str_replace( ';}', "}\n", $css );
 		$css = trim($css);
 		return $css;
-
 	}
 	
 	protected static function ProcessImportCssText($CssText = '', $Filepath) {
