@@ -3,8 +3,8 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme.txt for details.',
-	'Version' => '1.3.15',
-	'Date' => '18 Mar 2011',
+	'Version' => '1.3.16',
+	'Date' => '4 Apr 2011',
 	'Author' => 'S',
 	'AuthorUrl' => 'http://www.google.com',
 	'RequiredApplications' => False,
