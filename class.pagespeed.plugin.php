@@ -9,7 +9,7 @@ $PluginInfo['PageSpeed'] = array(
 	'AuthorUrl' => 'http://www.google.com',
 	'RequiredApplications' => False,
 	'RequiredTheme' => False, 
-	'RequiredPlugins' => array('PluginUtils' => '>=2.3.60'),
+	'RequiredPlugins' => array('UsefulFunctions' => '>=2.3.60'),
 	'RegisterPermissions' => False,
 	'SettingsPermission' => False
 );

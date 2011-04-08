@@ -1,5 +1,5 @@
 <?php
-require_once implode(DIRECTORY_SEPARATOR, array(dirname(__FILE__), '..', '..', 'plugins', 'PluginUtils', 'bootstrap.console.php'));
+require_once implode(DIRECTORY_SEPARATOR, array(dirname(__FILE__), '..', '..', 'plugins', 'UsefulFunctions', 'bootstrap.console.php'));
 
 $Directory = new RecursiveDirectoryIterator('cache/ps');
 foreach(new RecursiveIteratorIterator($Directory) as $File) {
