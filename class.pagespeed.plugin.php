@@ -3,10 +3,10 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme.txt for details.',
-	'Version' => '1.3.16',
+	'Version' => '1.3.17',
 	'Date' => '4 Apr 2011',
 	'Author' => 'S',
-	'AuthorUrl' => 'http://www.google.com',
+	'AuthorUrl' => 'https://github.com/search?type=Repositories&language=php&q=PageSpeed',
 	'RequiredApplications' => False,
 	'RequiredTheme' => False, 
 	'RequiredPlugins' => array('UsefulFunctions' => '>=2.3.60'),
@@ -19,7 +19,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 	protected static function RemoveKeyFromArray($Array, $Keys) {
 		// RemoveKeyFromArray in functions.general.php doesnt work as expected
 		if (!is_array($Keys)) $Keys = array($Keys);
-		if (is_array($Array)) foreach($Keys as $Key) unset($Array[$Key]);
+		if (is_array($Array)) foreach ($Keys as $Key) unset($Array[$Key]);
 		return $Array;
 	}
 	
@@ -79,7 +79,6 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				}
 				
 				$GroupName = self::GetGroupName($Path);
-				// TODO: Add news library js (v2.1.0)
 				if ($GroupName == 'js' || 
 					in_array($Basename, array('global.js', 'queue.js', 'slice.js'))) $GroupName = 'library';
 				elseif ($GroupName == 'themes') $GroupName = 'plugins';
@@ -101,15 +100,9 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				$FilePath = PATH_ROOT.$Path;
 				if (!file_exists($FilePath)) trigger_error("No such file ($FilePath)");
 				$Hash = Crc32Value(md5_file($FilePath), filemtime($FilePath));
-				
-				
+
 				$CachedFilePath = "cache/ps/{$Hash}.$Basename";
-				
-				// OLD
-				//$Filename = pathinfo($Basename, PATHINFO_FILENAME);
-				//if (substr($Filename, 0, 2) != '__') $Filename = '__'.$Filename;
-				//$CachedFilePath = dirname($FilePath)."/{$Filename}-c-{$Hash}.css";
-				
+
 				if (!file_exists($CachedFilePath)) {
 					$Css = file_get_contents($FilePath);
 					$CssText = self::ProcessImportCssText($Css, $FilePath);
@@ -144,13 +137,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 					$CombinedCss[$GroupName][$Index] = $CachedFilePath;
 				} else 
 					$Href = Asset($CachedFilePath);
-				
-				// OLD
-				//$Href = Asset(substr($CachedFilePath, strlen(PATH_ROOT)+1));
-				
-				
-			} else continue;
-			
+			}
 		}
 		
 		if (count($CombinedCss) > 0) {
@@ -249,12 +236,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 	
 	
 	protected static function IsUrl($Url) {
-		return (strpos($Url, '//') !== False);
-	}
-	
-	public function Setup() {
-		if (!is_dir('cache/ps')) mkdir('cache/ps', 0777, True);
-		
+		return (strpos($Url, '://') !== False);
 	}
 	
 	protected static function MinifyCssFile($Filepath) {
@@ -264,22 +246,22 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 	protected static function MinifyCssText($Text) {
 		return self::StaticMinify($Text);
 	}
+	
+	public function Tick_Match_00_Minutes_05_Hours_1_Day_Handler() {
+		$Directory = new RecursiveDirectoryIterator('cache/ps');
+		foreach (new RecursiveIteratorIterator($Directory) as $File) {
+			$CachedFile = $File->GetRealPath();
+			unlink($CachedFile);
+			Console::Message('Removed ^3%s', $CachedFile);
+		}
+	}
+	
+	public function Setup() {
+		if (!is_dir('cache/ps')) mkdir('cache/ps', 0777, True);
+		
+	}
+	
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

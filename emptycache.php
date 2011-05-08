@@ -8,6 +8,7 @@ foreach(new RecursiveIteratorIterator($Directory) as $File) {
 	Console::Message('Removed ^3%s', $CachedFile);
 }
 
+// + DtCss
 $DirectoryAry = array(PATH_APPLICATIONS, PATH_PLUGINS, PATH_THEMES);
 foreach($DirectoryAry as $DirectoryPath) {
 	$Directory = new RecursiveDirectoryIterator($DirectoryPath);

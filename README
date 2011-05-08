@@ -9,8 +9,7 @@ WHAT THIS PLUGIN DO?
 Try to apply Google web performance best practices.
 http://code.google.com/speed/page-speed/docs/rules_intro.html
 
-## GOOGLE WEB PERFORMANCE BEST PRACTICES
-
+GOOGLE WEB PERFORMANCE BEST PRACTICES
 Combine external CSS		[DONE]
 Minify CSS					[DONE]
 Avoid CSS @import			[DONE]
