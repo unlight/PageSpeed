@@ -3,8 +3,8 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme.txt for details.',
-	'Version' => '1.3.17',
-	'Date' => '4 Apr 2011',
+	'Version' => '1.3.18',
+	'Date' => '20 May 2011',
 	'Author' => 'S',
 	'AuthorUrl' => 'https://github.com/search?type=Repositories&language=php&q=PageSpeed',
 	'RequiredApplications' => False,
@@ -56,6 +56,9 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 					//if (Gdn_Statistics::IsLocalhost()) continue; // TODO: CONF TO DISABLE
 					$Src = 'http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js';
 					continue;
+				} elseif ($Basename == 'jqueryui.js' || $Basename == 'jquery.ui.packed.js') {
+					$Src = 'http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.13/jquery-ui.min.js';
+					continue;
 				}
 				
 				$FilePath = PATH_ROOT.$Path; // MAYBE USE $_SERVER['DOCUMENT_ROOT']?
@@ -87,6 +90,10 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				$CombinedJavascript[$GroupName][$Index] = $CachedFilePath;
 				
 			} elseif (GetValue(HeadModule::TAG_KEY, $Tag) == 'link' && GetValue('rel', $Tag) == 'stylesheet') {
+				
+				// TODO:
+				//http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.13/themes/smoothness/jquery-ui.css
+				
 				// Css (link/stylesheet tag)
 				// We must save to same directory becase url(relativepath)
 				// You can cleanup cached files by running script
