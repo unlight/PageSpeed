@@ -99,7 +99,10 @@ POSSIBLE PROBLEMS
 2.	Remote compression javascript code service can be down.
 
 
-
+CHANGELOG
+=========
+1.3 (19 May 2011)
+- loading jqueryui from cdn
 
 
 
