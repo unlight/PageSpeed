@@ -103,6 +103,10 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				
 				$Path = parse_url($Href, PHP_URL_PATH);
 				$Basename = pathinfo($Path, PATHINFO_BASENAME);
+				// TODO: custom-
+/*				if (substr($Basename, 0, 6) == 'custom') {
+					d($Tags, $Basename);
+				}*/
 				
 				$FilePath = PATH_ROOT.$Path;
 				if (!file_exists($FilePath)) trigger_error("No such file ($FilePath)");
@@ -137,7 +141,8 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				$GroupName = self::GetGroupName($Path);
 				// combine in two group applications and plugins
 				// TODO: ATTENTION! "screen" changed to "all" in unstable
-				if (GetValue('media', $Tag) == 'screen') {
+				$Media = GetValue('media', $Tag);
+				if ($Media == 'screen' || $Media == 'all') {
 					if (!isset($CssTag)) $CssTag = $Tag;
 					if (!in_array($GroupName, array('plugins', 'applications'))) 
 						$GroupName = 'applications';
