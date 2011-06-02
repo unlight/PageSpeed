@@ -3,8 +3,8 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme.txt for details.',
-	'Version' => '1.3.18',
-	'Date' => '20 May 2011',
+	'Version' => '1.4t',
+	'Date' => 'Summer 2011',
 	'Author' => 'S',
 	'AuthorUrl' => 'https://github.com/search?type=Repositories&language=php&q=PageSpeed',
 	'RequiredApplications' => False,
@@ -13,6 +13,14 @@ $PluginInfo['PageSpeed'] = array(
 	'RegisterPermissions' => False,
 	'SettingsPermission' => False
 );
+
+/* ========================================= config
+// see all available versions http://code.google.com/apis/libraries/devguide.html
+$Configuration['Plugins']['PageSpeed']['CDN']['jquery'] = '1.2.3';
+$Configuration['Plugins']['PageSpeed']['CDN']['jqueryui'] = '1.5.2';
+$Configuration['Plugins']['PageSpeed']['IgnoreDebug'] = False;
+
+*/
 
 class PageSpeedPlugin implements Gdn_IPlugin {
 	
@@ -53,15 +61,17 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				$Path = parse_url($Src, PHP_URL_PATH);
 				$Basename = pathinfo($Path, PATHINFO_BASENAME);
 				if ($Basename == 'jquery.js') {
+					$Version = GetValueR('CDN.jquery', $Configuration, '1.2.3');
 					//if (Gdn_Statistics::IsLocalhost()) continue; // TODO: CONF TO DISABLE
-					$Src = 'http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js';
+					$Src = 'http://ajax.googleapis.com/ajax/libs/jquery/'.$Version.'/jquery.min.js';
 					continue;
 				} elseif ($Basename == 'jqueryui.js' || $Basename == 'jquery.ui.packed.js') {
-					$Src = 'http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.13/jquery-ui.min.js';
+					$Version = GetValueR('CDN.jqueryui', $Configuration, '1.5.2');
+					$Src = 'http://ajax.googleapis.com/ajax/libs/jqueryui/'.$Version.'/jquery-ui.min.js';
 					continue;
 				}
 				
-				$FilePath = PATH_ROOT.$Path; // MAYBE USE $_SERVER['DOCUMENT_ROOT']?
+				$FilePath = PATH_ROOT.$Path;
 				if (!file_exists($FilePath)) trigger_error("No such file ($FilePath)");
 				$Hash = Crc32Value(md5_file($FilePath), filemtime($FilePath));
 				$CachedFilePath = "cache/ps/{$Hash}.$Basename";
@@ -91,6 +101,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				
 			} elseif (GetValue(HeadModule::TAG_KEY, $Tag) == 'link' && GetValue('rel', $Tag) == 'stylesheet') {
 				
+				//$Version = GetValueR('CDN.jqueryui', $Configuration, '1.5.2');
 				// TODO:
 				//http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.13/themes/smoothness/jquery-ui.css
 				
