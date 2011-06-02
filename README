@@ -90,6 +90,11 @@ Normally Page Speed do something only on production server. You can change this.
 $Configuration['Plugins']['PageSpeed']['MinifyCss'] = True;
 Compress css code.
 
+// Loads desired version of jquery
+$Configuration['Plugins']['PageSpeed']['CDN']['jquery'] = '1.4.1';
+$Configuration['Plugins']['PageSpeed']['CDN']['jqueryui'] = '1.7.1';
+
+
 
 POSSIBLE PROBLEMS
 =================
@@ -97,6 +102,10 @@ POSSIBLE PROBLEMS
 	Maybe other errors (No such file).
 
 2.	Remote compression javascript code service can be down.
+
+TODO
+====
+SWFObject
 
 
 CHANGELOG

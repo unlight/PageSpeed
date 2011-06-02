@@ -14,14 +14,6 @@ $PluginInfo['PageSpeed'] = array(
 	'SettingsPermission' => False
 );
 
-/* ========================================= config
-// see all available versions http://code.google.com/apis/libraries/devguide.html
-$Configuration['Plugins']['PageSpeed']['CDN']['jquery'] = '1.2.3';
-$Configuration['Plugins']['PageSpeed']['CDN']['jqueryui'] = '1.5.2';
-$Configuration['Plugins']['PageSpeed']['IgnoreDebug'] = False;
-
-*/
-
 class PageSpeedPlugin implements Gdn_IPlugin {
 	
 	protected static function RemoveKeyFromArray($Array, $Keys) {
@@ -61,12 +53,12 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				$Path = parse_url($Src, PHP_URL_PATH);
 				$Basename = pathinfo($Path, PATHINFO_BASENAME);
 				if ($Basename == 'jquery.js') {
-					$Version = GetValueR('CDN.jquery', $Configuration, '1.2.3');
+					$Version = GetValueR('CDN.jquery', $Configuration, '1.4.1');
 					//if (Gdn_Statistics::IsLocalhost()) continue; // TODO: CONF TO DISABLE
 					$Src = 'http://ajax.googleapis.com/ajax/libs/jquery/'.$Version.'/jquery.min.js';
 					continue;
 				} elseif ($Basename == 'jqueryui.js' || $Basename == 'jquery.ui.packed.js') {
-					$Version = GetValueR('CDN.jqueryui', $Configuration, '1.5.2');
+					$Version = GetValueR('CDN.jqueryui', $Configuration, '1.7.1');
 					$Src = 'http://ajax.googleapis.com/ajax/libs/jqueryui/'.$Version.'/jquery-ui.min.js';
 					continue;
 				}
