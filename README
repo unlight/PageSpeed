@@ -1,6 +1,6 @@
 DESCRIPTION
 ===========
-Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme.txt for details.
+Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules.
 
 BEFORE INSTALL DISABLE ALL OTHER PLUGINS WHICH DOING THE SAME (such as Minify, etc.)
 
