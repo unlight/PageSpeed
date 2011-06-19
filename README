@@ -15,14 +15,14 @@ Minify CSS					[DONE]
 Avoid CSS @import			[DONE]
 Combine external JavaScript [DONE]
 Minify JavaScript			[DONE]
-Enable compression			[DONE, SERVER JOB]
+Enable compression			[DONE]
 Leverage browser caching	[SERVER JOB]
 Parallelize downloads across hostnames	[TODO]
 Remove unused CSS			[DEVELOPER JOB]
 Use efficient CSS selectors	[VANILLA ALREADY]
 Minify HTML					[VANILLA ALREADY]
 Optimize images				[DEVELOPER JOB]
-Specify image dimensions	[DEVELOPER JOB]
+Specify image dimensions	[DONE]
 Avoid bad requests			[DEVELOPER JOB]
 Combine images into CSS sprites	[TODO, DEVELOPER JOB]
 Inline Small CSS			[NO NEED]
@@ -94,7 +94,12 @@ Compress css code.
 $Configuration['Plugins']['PageSpeed']['CDN']['jquery'] = '1.4.1';
 $Configuration['Plugins']['PageSpeed']['CDN']['jqueryui'] = '1.7.1';
 
+$Configuration['Plugins']['PageSpeed']['CDN']['jqueryui-theme'] = 'smoothness';
+jQueryUI theme name.
 
+$Configuration['Plugins']['PageSpeed']['SetImageDimensions'] = FALSE;
+If image attributes height and width not specified, this option enables post-processing
+and set height/width for all images of entire html content.
 
 POSSIBLE PROBLEMS
 =================
@@ -106,10 +111,16 @@ POSSIBLE PROBLEMS
 TODO
 ====
 SWFObject
+Use core AbsoluteSource() when possible
 
 
 CHANGELOG
 =========
+1.4 (19 Jun 2011)
+- set image dimensions
+- loading jqueryui css theme from CDN
+- themes group files moved to library group
+
 1.3 (19 May 2011)
 - loading jqueryui from cdn
 
