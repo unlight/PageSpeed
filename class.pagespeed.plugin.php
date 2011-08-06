@@ -88,18 +88,36 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		}
 	}
 	
+	protected static function ChangeBackgroundUrl(&$CssText, $FilePath) {
+		// Change background image url in css
+		if (preg_match_all('/url\((.+?)\)/', $CssText, $Match)) {
+			foreach($Match[1] as $N => $UrlImage) {
+				$UrlImage = trim($UrlImage, '"\'');
+				if ($UrlImage[0] == '/' || self::IsUrl($UrlImage) || substr($UrlImage, 0, 5) == 'data:') continue;
+				$File = dirname($FilePath).'/'.$UrlImage;
+				if (!file_exists($File)) {
+					if (C('Debug')) trigger_error("Error while fix background image url path. No such file ($File).");
+				}
+				$Asset = Asset(substr($File, strlen(PATH_ROOT)+1));
+				$CssText = str_replace($Match[0][$N], "url($Asset)", $CssText);
+			}
+		}
+	}
+	
 	public function HeadModule_BeforeToString_Handler($Head) {
 
 		$Configuration =& $this->Configuration;
 		$Debug = C('Debug');
 		if ($Debug && !GetValue('IgnoreDebug', $Configuration)) return;
+
+		$Tags = $Head->Tags();
+		usort($Tags, array('HeadModule', 'TagCmp')); // BeforeToString fires before sort
 		
 		$CombinedJavascript = array('library' => array());
 		$CombinedCss = array();
 		$RemoveIndex = array();
 		
-		$Tags = $Head->Tags();
-		usort($Tags, array('HeadModule', 'TagCmp')); // BeforeToString fires before sort
+		$AllInOne = GetValue('AllInOne', $Configuration);
 		
 		foreach ($Tags as $Index => &$Tag) {
 			// JavaScript (script tag)
@@ -122,14 +140,17 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 					}
 					file_put_contents($CachedFilePath, $Snoopy->results);
 				}
-				
-				$GroupName = self::GetGroupName($FilePath);
-				if ($GroupName == 'js' || $GroupName == 'themes') $GroupName = 'library';
-				elseif (!in_array($GroupName, array('plugins', 'applications', 'library'))) {
-					// Unknown group, move it to application group.
-					$GroupName = 'applications';
+				if (!$AllInOne) {
+					$GroupName = self::GetGroupName($FilePath);
+					if ($GroupName == 'js' || $GroupName == 'themes') $GroupName = 'library';
+					elseif (!in_array($GroupName, array('plugins', 'applications', 'library'))) {
+						// Unknown group, move it to application group.
+						$GroupName = 'applications';
+					}
+					$CombinedJavascript[$GroupName][$Index] = $CachedFilePath;
+				} else {
+					$CombinedJavascript[$Index] = $CachedFilePath;
 				}
-				$CombinedJavascript[$GroupName][$Index] = $CachedFilePath;
 				
 			} elseif (GetValue(HeadModule::TAG_KEY, $Tag) == 'link' && GetValue('rel', $Tag) == 'stylesheet') {
 
@@ -141,79 +162,113 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 					$CssText = self::ProcessImportCssText($Css, $FilePath);
 					if ($CssText === False) $CssText = $Css;
 					if (GetValue('MinifyCss', $Configuration, True)) $CssText = self::MinifyCssText($CssText);
-					
-					// Check background image url
-					if (preg_match_all('/url\((.+?)\)/', $CssText, $Match)) {
-						foreach($Match[1] as $N => $UrlImage) {
-							$UrlImage = trim($UrlImage, '"\'');
-							if ($UrlImage[0] == '/' || self::IsUrl($UrlImage) || substr($UrlImage, 0, 5) == 'data:') continue;
-							$File = dirname($FilePath).'/'.$UrlImage;
-							if (!file_exists($File)) {
-								if ($Debug) trigger_error("Error while fix background image url path. No such file ($File).");
-							}
-							$Asset = Asset(substr($File, strlen(PATH_ROOT)+1));
-							$CssText = str_replace($Match[0][$N], "url($Asset)", $CssText);
-						}
-					}
-					
+					self::ChangeBackgroundUrl($CssText, $FilePath);
 					// TODO: COMBINE CSS (WE MUST CHECK MEDIA)
 					// style.css + custom.css, admin.css + customadmin.css
 					// TODO: MORE EFFECTIVE COMBINE colorbox.css + custom-colorbox.css
 					file_put_contents($CachedFilePath, $CssText);
 				}
 				
-				$GroupName = self::GetGroupName($FilePath);
-				// combine in two group applications and plugins
-				if (!isset($CssTag)) $CssTag = $Tag;
-				if (!in_array($GroupName, array('plugins', 'applications'))) $GroupName = 'applications';
-				$CombinedCss[$GroupName][$Index] = $CachedFilePath;
+				if (!$AllInOne) {
+					$GroupName = self::GetGroupName($FilePath);
+					// combine in two group applications and plugins
+					//d();d($Tag);
+					// TODO: REMOVE if (!isset($CssTag)) $CssTag = $Tag;
+					if (!isset($CssTag)) $CssTag = $Tag;
+					if (!in_array($GroupName, array('plugins', 'applications'))) $GroupName = 'applications';
+					$CombinedCss[$GroupName][$Index] = $CachedFilePath;
+				} else {
+					$CombinedCss[$Index] = $CachedFilePath;
+				}
 			}
 		}
 		
-		//d(@$CombinedCss, @$CombinedJavascript);
-		
-		if (count($CombinedCss) > 0) {
-			foreach ($CombinedCss as $Group => $Files) {
-				$RemoveIndex[] = array_keys($Files);
-				$Hash = self::HashSumFiles($Files);
-				$CachedFilePath = "cache/ps/{$Group}.{$Hash}.css";
-				if (!file_exists($CachedFilePath)) {
-					$Combined = '';
-					foreach ($Files as $Index => $File) {
-						$Combined .= '/*' . basename($File) . "*/\n" . file_get_contents($File) . "\n";
-					}
-					file_put_contents($CachedFilePath, $Combined);
+		if ($AllInOne) {
+			unset($CombinedJavascript['library']);
+			$RemoveIndex = array(array_keys($CombinedCss), array_keys($CombinedJavascript));
+			// Css
+			$CachedFilePath = 'cache/ps/style.' . self::HashSumFiles($CombinedCss) . '.css';
+			if (!file_exists($CachedFilePath)) {
+				$Combined = '';
+				//$IncludeBasename = Gdn::Session()->CheckPermission('Garden.Admin.Only');
+				foreach ($CombinedCss as $File) {
+					//if ($IncludeBasename) $Combined .= '/*' . basename($File) . "*/\n";
+					$Combined .= file_get_contents($File) . "\n";
 				}
-				$CssTag[HeadModule::SORT_KEY] += 1;
-				// This is not works...
-				// $CssTag['href'] = Asset($CachedFilePath);
-				// $Tags[] = $CssTag;
-				// This works...
-				$Tags[] = array_merge($CssTag, array('href' => Asset($CachedFilePath, False, False)));
+				file_put_contents($CachedFilePath, $Combined);
 			}
-		}
-		// TODO: IF ONE FILE IN GROUP NO NEED TO PARSE/COMBINE IT
-		if (count($CombinedJavascript) > 1) {
-			foreach ($CombinedJavascript as $Group => $Files) {
-				$RemoveIndex[] = array_keys($Files);
-				$Hash = self::HashSumFiles($Files);
-				$CachedFilePath = "cache/ps/{$Group}.{$Hash}.js";
-				if (!file_exists($CachedFilePath)) {
-					$Combined = '';
-					foreach ($Files as $Index => $File) {
-						$Combined .= '//' . basename($File) . "\n" . file_get_contents($File) . ";\n";
+			$Tags[] = array(
+				HeadModule::TAG_KEY => 'link',
+				'rel' => 'stylesheet',
+				'type' => 'text/css',
+				'href' => Asset($CachedFilePath, False, False),
+				'media' => 'all',
+				HeadModule::SORT_KEY => 98
+			);
+
+			// Js
+			$CachedFilePath = 'cache/ps/functions.' . self::HashSumFiles($CombinedJavascript) . '.js';
+			if (!file_exists($CachedFilePath)) {
+				$Combined = '';
+				foreach ($CombinedJavascript as $File) $Combined .= file_get_contents($File) . ";\n";
+				file_put_contents($CachedFilePath, $Combined);
+			}
+		
+			//$JsTag['src'] = Asset($CachedFilePath, False, False);
+			//$JsTag[HeadModule::SORT_KEY] += 1;
+			$Tags[] = array(
+				HeadModule::TAG_KEY => 'script',
+				'type' => 'text/javascript',
+				'src' => Asset($CachedFilePath, False, False),
+				//'_path' => $CachedFilePath,
+				HeadModule::SORT_KEY => 99
+			);
+
+			//d($RemoveIndex, Flatten($RemoveIndex), @$CombinedCss, @$CombinedJavascript);
+		} else {
+			if (count($CombinedCss) > 0) {
+				foreach ($CombinedCss as $Group => $Files) {
+					$RemoveIndex[] = array_keys($Files);
+					$Hash = self::HashSumFiles($Files);
+					$CachedFilePath = "cache/ps/{$Group}.{$Hash}.css";
+					if (!file_exists($CachedFilePath)) {
+						$Combined = '';
+						foreach ($Files as $Index => $File) {
+							$Combined .= '/*' . basename($File) . "*/\n" . file_get_contents($File) . "\n";
+						}
+						file_put_contents($CachedFilePath, $Combined);
 					}
-					file_put_contents($CachedFilePath, $Combined);
+					$CssTag[HeadModule::SORT_KEY] += 1;
+					// This is not works...
+					// $CssTag['href'] = Asset($CachedFilePath);
+					// $Tags[] = $CssTag;
+					// This works...
+					$Tags[] = array_merge($CssTag, array('href' => Asset($CachedFilePath, False, False)));
 				}
-				
-				$JsTag['src'] = Asset($CachedFilePath, False, False);
-				$JsTag[HeadModule::SORT_KEY] += 1;
-				$Tags[] = $JsTag;
+			}
+			// TODO: IF ONE FILE IN GROUP NO NEED TO PARSE/COMBINE IT
+			if (count($CombinedJavascript) > 1) {
+				foreach ($CombinedJavascript as $Group => $Files) {
+					$RemoveIndex[] = array_keys($Files);
+					$Hash = self::HashSumFiles($Files);
+					$CachedFilePath = "cache/ps/{$Group}.{$Hash}.js";
+					if (!file_exists($CachedFilePath)) {
+						$Combined = '';
+						foreach ($Files as $Index => $File) {
+							$Combined .= '//' . basename($File) . "\n" . file_get_contents($File) . ";\n";
+						}
+						file_put_contents($CachedFilePath, $Combined);
+					}
+					
+					$JsTag['src'] = Asset($CachedFilePath, False, False);
+					$JsTag[HeadModule::SORT_KEY] += 1;
+					$Tags[] = $JsTag;
+				}
 			}
 		}
 		
 		if (count($RemoveIndex) > 0) $Tags = self::RemoveKeyFromArray($Tags, Flatten($RemoveIndex));
-		//d($Tags);
+
 		$Head->Tags($Tags);
 	}
 	
@@ -299,19 +354,22 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		preg_match_all('/(@import\s+url\(((.+?)\)).*)/i', $CssText, $Match);
 		if (!(isset($Match[3]) && count($Match[3]) > 0)) return False;
 		$CssFiles = $Match[3];
+		//$Url = Url('/', True);
+		$DocRoot = Gdn::Request()->GetValue('DOCUMENT_ROOT');
 		$Replace = array();
 		foreach ($CssFiles as $N => $Filename) {
 			$Filename = trim($Filename, '"\'');
-			if (strpos($Filename, '/') === False) {
+			if ($Filename{0} == '/') {
+				$ImportFilepath = PrefixString($DocRoot, $Filename);
+			} else {
 				// relative path
 				$ImportFilepath = dirname($Filepath) . DS . $Filename;
-				if (!file_exists($ImportFilepath)) trigger_error("No such file ($ImportFilepath)");
-				$ImportMatch = $Match[0][$N];
-				$Replace[$ImportMatch] = "\n".file_get_contents($ImportFilepath);
-			} else {
-				if (C('Debug')) trigger_error("File lost ($Filename).");
-				return $CssText;
-			}
+			}			
+			if (!file_exists($ImportFilepath)) trigger_error("File not found ($ImportFilepath)");
+			$ImportedCss = file_get_contents($ImportFilepath);
+			self::ChangeBackgroundUrl($ImportedCss, $ImportFilepath);
+			$ImportMatch = $Match[0][$N];
+			$Replace[$ImportMatch] = "\n".$ImportedCss;
 		}
 		
 		$Result = str_replace(array_keys($Replace), array_values($Replace), $CssText);
