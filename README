@@ -85,21 +85,24 @@ CONFIGURATION (DEFAULTS)
 ========================
 
 $Configuration['Plugins']['PageSpeed']['IgnoreDebug'] = False;
-Normally Page Speed do something only on production server. You can change this.
+	Normally Page Speed do something only on production server. You can change this.
 
 $Configuration['Plugins']['PageSpeed']['MinifyCss'] = True;
-Compress css code.
+	Compress css code.
 
 // Loads desired version of jquery
 $Configuration['Plugins']['PageSpeed']['CDN']['jquery'] = '1.4.1';
 $Configuration['Plugins']['PageSpeed']['CDN']['jqueryui'] = '1.7.1';
 
 $Configuration['Plugins']['PageSpeed']['CDN']['jqueryui-theme'] = 'smoothness';
-jQueryUI theme name.
+	jQueryUI theme name.
 
 $Configuration['Plugins']['PageSpeed']['SetImageDimensions'] = FALSE;
-If image attributes height and width not specified, this option enables post-processing
-and set height/width for all images of entire html content.
+	If image attributes height and width not specified, this option enables post-processing
+	and set height/width for all images of entire html content.
+
+$Configuration['Plugins']['PageSpeed']['AllInOne'] = False;
+	If True all CSS/Javascript files combined into one file.
 
 POSSIBLE PROBLEMS
 =================
@@ -110,12 +113,16 @@ POSSIBLE PROBLEMS
 
 TODO
 ====
-SWFObject
-Use core AbsoluteSource() when possible
+- SWFObject
+- Use core AbsoluteSource() when possible
 
 
 CHANGELOG
 =========
+1.5 (7 Aug 2011)
+- new config option AllInOne
+- improvements of css processing
+
 1.4 (19 Jun 2011)
 - set image dimensions
 - loading jqueryui css theme from CDN

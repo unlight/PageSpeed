@@ -3,11 +3,11 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme for details.',
-	'Version' => '1.4.19',
+	'Version' => '1.5.2.0.17',
 	'Date' => 'Summer 2011',
 	'Author' => 'Nobody',
 	'AuthorUrl' => 'https://github.com/search?type=Repositories&language=php&q=PageSpeed',
-	'RequiredApplications' => array('Dashboard' => '>=2.0.18'),
+	'RequiredApplications' => array('Dashboard' => '>=2.0.17'),
 	'RequiredTheme' => False, 
 	'RequiredPlugins' => array('UsefulFunctions' => '>=2.3.60'),
 	'RegisterPermissions' => False,
@@ -172,7 +172,6 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				if (!$AllInOne) {
 					$GroupName = self::GetGroupName($FilePath);
 					// combine in two group applications and plugins
-					//d();d($Tag);
 					// TODO: REMOVE if (!isset($CssTag)) $CssTag = $Tag;
 					if (!isset($CssTag)) $CssTag = $Tag;
 					if (!in_array($GroupName, array('plugins', 'applications'))) $GroupName = 'applications';
@@ -214,8 +213,6 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				file_put_contents($CachedFilePath, $Combined);
 			}
 		
-			//$JsTag['src'] = Asset($CachedFilePath, False, False);
-			//$JsTag[HeadModule::SORT_KEY] += 1;
 			$Tags[] = array(
 				HeadModule::TAG_KEY => 'script',
 				'type' => 'text/javascript',
@@ -331,7 +328,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 	
 	protected static function StaticMinify($css) {
 		//$css = str_replace('  ', ' ', $css);
-		// creadit: http://www.phpsnippets.info/compress-css-files-using-php
+		// credit: http://www.phpsnippets.info/compress-css-files-using-php
 		/* remove comments */
 		$css = preg_replace('!/\*[^*]*\*+([^/][^*]*\*+)*/!', '', $css);
 		/* remove tabs, spaces, newlines, etc. */
