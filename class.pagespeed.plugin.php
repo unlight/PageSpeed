@@ -3,7 +3,7 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme for details.',
-	'Version' => '1.51.2.0.17',
+	'Version' => '1.52.2.0.17',
 	'Date' => 'Summer 2011',
 	'Author' => 'Nobody',
 	'AuthorUrl' => 'https://github.com/search?type=Repositories&language=php&q=PageSpeed',
@@ -376,7 +376,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 	
 	
 	protected static function IsUrl($Url) {
-		return (strpos($Url, '://') !== False);
+		return (strpos($Url, '//') !== False);
 	}
 	
 	protected static function MinifyCssFile($Filepath) {
