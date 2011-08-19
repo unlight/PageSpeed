@@ -3,7 +3,7 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme for details.',
-	'Version' => '1.52.2.0.17',
+	'Version' => '1.53.2.0.17',
 	'Date' => 'Summer 2011',
 	'Author' => 'Nobody',
 	'AuthorUrl' => 'https://github.com/search?type=Repositories&language=php&q=PageSpeed',
@@ -186,6 +186,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			unset($CombinedJavascript['library']);
 			$RemoveIndex = array(array_keys($CombinedCss), array_keys($CombinedJavascript));
 			// Css
+			$CombinedCss = array_unique($CombinedCss);
 			$CachedFilePath = 'cache/ps/style.' . self::HashSumFiles($CombinedCss) . '.css';
 			if (!file_exists($CachedFilePath)) {
 				$Combined = '';
@@ -206,6 +207,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			);
 
 			// Js
+			$CombinedJavascript = array_unique($CombinedJavascript);
 			$CachedFilePath = 'cache/ps/functions.' . self::HashSumFiles($CombinedJavascript) . '.js';
 			if (!file_exists($CachedFilePath)) {
 				$Combined = '';
@@ -224,8 +226,10 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			//d($RemoveIndex, Flatten($RemoveIndex), @$CombinedCss, @$CombinedJavascript);
 		} else {
 			if (count($CombinedCss) > 0) {
+				// TODO: array_unique
 				foreach ($CombinedCss as $Group => $Files) {
 					$RemoveIndex[] = array_keys($Files);
+					$Files = array_unique($Files);
 					$Hash = self::HashSumFiles($Files);
 					$CachedFilePath = "cache/ps/{$Group}.{$Hash}.css";
 					if (!file_exists($CachedFilePath)) {
@@ -245,8 +249,10 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			}
 			// TODO: IF ONE FILE IN GROUP NO NEED TO PARSE/COMBINE IT
 			if (count($CombinedJavascript) > 1) {
+				// TODO: array_unique
 				foreach ($CombinedJavascript as $Group => $Files) {
 					$RemoveIndex[] = array_keys($Files);
+					$Files = array_unique($Files);
 					$Hash = self::HashSumFiles($Files);
 					$CachedFilePath = "cache/ps/{$Group}.{$Hash}.js";
 					if (!file_exists($CachedFilePath)) {
@@ -395,7 +401,6 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 	}
 	
 	protected static function HashSumFiles($Files) {
-		$Files = array_unique($Files);
 		$HashSum = array_sum(array_map('crc32', $Files));
 		$NewHash = sprintf('%u', crc32($HashSum));
 		return $NewHash;
