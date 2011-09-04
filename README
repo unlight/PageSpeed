@@ -98,6 +98,7 @@ $Configuration['Plugins']['PageSpeed']['CDN']['jqueryui-theme'] = 'smoothness';
 	jQueryUI theme name.
 
 $Configuration['Plugins']['PageSpeed']['SetImageDimensions'] = FALSE;
+	NOTE! REMOVED SINCE 1.60
 	If image attributes height and width not specified, this option enables post-processing
 	and set height/width for all images of entire html content.
 
@@ -114,11 +115,14 @@ POSSIBLE PROBLEMS
 TODO
 ====
 - SWFObject
-- Use core AbsoluteSource() when possible
 
 
 CHANGELOG
 =========
+1.6 (unknown date)
+- removed AbsoluteSource()
+- removed SetImageDimensions feature
+
 1.5 (7 Aug 2011)
 - new config option AllInOne
 - improvements of css processing

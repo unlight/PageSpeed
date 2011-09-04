@@ -3,7 +3,7 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme for details.',
-	'Version' => '1.53.2.0.17',
+	'Version' => '1.60.2.0.18',
 	'Date' => 'Summer 2011',
 	'Author' => 'Nobody',
 	'AuthorUrl' => 'https://github.com/search?type=Repositories&language=php&q=PageSpeed',
@@ -14,44 +14,6 @@ $PluginInfo['PageSpeed'] = array(
 	'SettingsPermission' => False
 );
 
-// TODO: REMOVE WHEN 2.0.18
-if (!function_exists('AbsoluteSource')) {
-/**
-* Takes a source path (ie. an image src from an html page), and an
-* associated URL (ie. the page that the image appears on), and returns the
-* absolute source (including url & protocol) path.
-* @param string $SrcPath The source path to make absolute (if not absolute already).
-* @param string $Url The full url to the page containing the src reference.
-* @return string Absolute source path.
-*/
-	function AbsoluteSource($SrcPath, $Url) {
-		// If there is a scheme in the srcpath already, just return it.
-		if (!is_null(parse_url($SrcPath, PHP_URL_SCHEME))) return $SrcPath;
-		
-		// Does SrcPath assume root?
-		if (in_array(substr($SrcPath, 0, 1), array('/', '\\')))
-			return parse_url($Url, PHP_URL_SCHEME)
-				.'://'
-				.parse_url($Url, PHP_URL_HOST)
-				.$SrcPath;
-	
-		// Work with the path in the url & the provided src path to backtrace if necessary
-		$UrlPathParts = explode('/', str_replace('\\', '/', parse_url($Url, PHP_URL_PATH)));
-		$SrcParts = explode('/', str_replace('\\', '/', $SrcPath));
-		$Result = array();
-		foreach ($SrcParts as $Part) {
-			if (!$Part || $Part == '.') continue;
-			if ($Part == '..') array_pop($UrlPathParts);
-			else $Result[] = $Part;
-		}
-		// Put it all together & return
-		return parse_url($Url, PHP_URL_SCHEME)
-			.'://'
-			.parse_url($Url, PHP_URL_HOST)
-			.'/'.implode('/', array_filter(array_merge($UrlPathParts, $Result)));
-	}
-}
-
 class PageSpeedPlugin implements Gdn_IPlugin {
 	
 	private $bRenderInitialized = False;
@@ -61,7 +23,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		$this->Configuration = C('Plugins.PageSpeed');
 	}
 	
-	public function Base_Render_Before($Sender) {
+/*	public function Base_Render_Before($Sender) {
 		$EnablePostProcessing = GetValue('SetImageDimensions', $this->Configuration)
 			&& $Sender->DeliveryMethod() == DELIVERY_METHOD_XHTML
 			&& $Sender->DeliveryType() == DELIVERY_TYPE_ALL 
@@ -77,16 +39,9 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			$String = ob_get_contents();
 			ob_end_clean();
 			self::StaticDomDocumentReplace($String);
-			//$Gdn_Timer = new Gdn_Timer();
-/*			$Gdn_Timer->Start();
-			self::StaticDomDocumentReplace($String);
-			$Gdn_Timer->Finish('self::StaticDomDocumentReplace($String);');*/
-			/*$Gdn_Timer->Start();
-			self::StaticPhpQueryReplace($String);
-			$Gdn_Timer->Finish('self::StaticPhpQueryReplace($String);');*/
 			echo $String;
 		}
-	}
+	}*/
 	
 	protected static function ChangeBackgroundUrl(&$CssText, $FilePath) {
 		// Change background image url in css
