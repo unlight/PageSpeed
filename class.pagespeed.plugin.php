@@ -3,7 +3,7 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme for details.',
-	'Version' => '1.72',
+	'Version' => '1.73',
 	'Date' => '7 Aug 2011',
 	'Updated' => 'Autumn 2011',
 	'Author' => 'Nobody',
@@ -22,8 +22,9 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		$this->Configuration = C('Plugins.PageSpeed');
 	}
 	
-/*	public function Base_Render_Before($Sender) {
-		$EnablePostProcessing = GetValue('SetImageDimensions', $this->Configuration)
+	public function Base_Render_Before($Sender) {
+		$EnablePostProcessing = 
+			GetValue('ParallelizeEnabled', $this->Configuration)
 			&& $Sender->DeliveryMethod() == DELIVERY_METHOD_XHTML
 			&& $Sender->DeliveryType() == DELIVERY_TYPE_ALL 
 			&& $Sender->SyndicationMethod == SYNDICATION_NONE;
@@ -37,10 +38,42 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		if ($this->bRenderInitialized) {
 			$String = ob_get_contents();
 			ob_end_clean();
-			self::StaticDomDocumentReplace($String);
+			self::StaticParallelizeDownloads($String);
 			echo $String;
 		}
-	}*/
+	}
+	
+	/**
+	* Parallelize downloads across hostnames.
+	*/
+	protected function StaticParallelizeDownloads(&$String) {
+		
+		if (substr(ltrim($String), 0, 5) != '<?xml') $String = '<?xml version="1.0" encoding="UTF-8"?'. ">\n" . $String;
+		$DOMDocument = DOMDocument::LoadXML($String, LIBXML_NOERROR);
+		if ($DOMDocument === False) return $String;
+		
+		$RequestHost = Gdn::Request()->Host();
+		$Domain = Gdn::Request()->Domain();
+		$Scheme = parse_url($Domain, PHP_URL_SCHEME);
+		$ParallelizeHosts = C('Plugins.PageSpeed.ParallelizeHosts');
+		if (!is_array($ParallelizeHosts) || count($ParallelizeHosts) == 0) throw new RuntimeException('ParallelizeHosts is not properly configured.');
+		$ParallelizeHostsCount = count($ParallelizeHosts);
+		$Replace = array();
+
+		$DomNodeList = $DOMDocument->GetElementsByTagName('img');
+		for ($i = $DomNodeList->length - 1; $i >= 0; $i--) {
+			$Node = $DomNodeList->Item($i);
+			$Src = $Node->GetAttribute('src');
+			$ParseUrl = parse_url($Src);
+			if (!isset($ParseUrl['host']) || $RequestHost == $ParseUrl['host']) {
+				$Hash = sprintf('%u', crc32($Src));
+				$ServerNum = $Hash % $ParallelizeHostsCount;
+				$NewSrc = GetValue('scheme', $ParseUrl, $Scheme) . '://' . $ParallelizeHosts[$ServerNum] . $ParseUrl['path'];
+				$Replace[$Src] = $NewSrc;
+			}
+		}
+		if (count($Replace) > 0) $String = str_replace(array_keys($Replace), array_values($Replace), $String);
+	}
 	
 	protected static function ChangeBackgroundUrl(&$CssText, $FilePath) {
 		// Change background image url in css
