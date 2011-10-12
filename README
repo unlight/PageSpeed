@@ -17,7 +17,7 @@ Combine external JavaScript [DONE]
 Minify JavaScript			[DONE]
 Enable compression			[DONE]
 Leverage browser caching	[SERVER JOB]
-Parallelize downloads across hostnames	[TODO]
+Parallelize downloads across hostnames	[DONE]
 Remove unused CSS			[DEVELOPER JOB]
 Use efficient CSS selectors	[VANILLA ALREADY]
 Minify HTML					[VANILLA ALREADY]
@@ -133,6 +133,9 @@ TODO
 
 CHANGELOG
 =========
+1.73 (13 Oct 2011)
+- parallelize downloads
+
 1.72 (13 Oct 2011)
 - various DeferJavaScript options
 
