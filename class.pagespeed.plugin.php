@@ -3,7 +3,7 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme for details.',
-	'Version' => '1.71',
+	'Version' => '1.72',
 	'Date' => '7 Aug 2011',
 	'Updated' => 'Autumn 2011',
 	'Author' => 'Nobody',
@@ -96,7 +96,6 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 						'download' => '',
 						'js_code' => file_get_contents($FilePath)
 					));
-					$Code =& $Snoopy->results;
 					*/
 
 					// Google Closure Compiler
@@ -105,9 +104,8 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 						'output_format' => 'text',
 						'output_info' => 'compiled_code'
 					));
-					$Code =& $Snoopy->results;
 										
-					file_put_contents($CachedFilePath, $Code);
+					file_put_contents($CachedFilePath, trim($Snoopy->results));
 				}
 				if (!$AllInOne) {
 					$GroupName = self::GetGroupName($FilePath);
