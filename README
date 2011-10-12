@@ -109,6 +109,9 @@ $Configuration['Plugins']['PageSpeed']['AllInOne'] = False;
 	
 $Configuration['Plugins']['PageSpeed']['DeferJavaScript'] = False;
 	Defer loading of JavaScript (JavaScript at bottom).
+	Values:
+	1 - just put <script> tags at bottom
+	2 - dynamic loading, http://code.google.com/speed/page-speed/docs/payload.html#DeferLoadingJS
 
 POSSIBLE PROBLEMS
 =================
@@ -124,6 +127,9 @@ TODO
 
 CHANGELOG
 =========
+1.72 (13 Oct 2011)
+- various DeferJavaScript options
+
 1.70 (12 Oct 2011)
 - new feature: DeferJavaScript
 
