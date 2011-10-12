@@ -3,21 +3,20 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme for details.',
-	'Version' => '1.60.2.0.18',
-	'Date' => 'Summer 2011',
+	'Version' => '1.71',
+	'Date' => '7 Aug 2011',
+	'Updated' => 'Autumn 2011',
 	'Author' => 'Nobody',
 	'AuthorUrl' => 'https://github.com/search?type=Repositories&language=php&q=PageSpeed',
 	'RequiredApplications' => array('Dashboard' => '>=2.0.17'),
-	'RequiredTheme' => False, 
-	'RequiredPlugins' => array('UsefulFunctions' => '>=2.3.60'),
-	'RegisterPermissions' => False,
-	'SettingsPermission' => False
+	'RequiredPlugins' => array('UsefulFunctions' => '>=2.3.60')
 );
 
 class PageSpeedPlugin implements Gdn_IPlugin {
 	
 	private $bRenderInitialized = False;
 	private $Configuration = array();
+	protected $DeferJavaScriptFiles = array();
 	
 	public function __construct() {
 		$this->Configuration = C('Plugins.PageSpeed');
@@ -72,28 +71,43 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		$CombinedCss = array();
 		$RemoveIndex = array();
 		
-		$AllInOne = GetValue('AllInOne', $Configuration);
+		$AllInOne = ArrayValue('AllInOne', $Configuration);
+		$DeferJavaScript = ArrayValue('DeferJavaScript', $Configuration);
 		
 		foreach ($Tags as $Index => &$Tag) {
 			// JavaScript (script tag)
 			if (GetValue(HeadModule::TAG_KEY, $Tag) == 'script') {
 				if (!isset($JsTag)) $JsTag = $Tag;
 				$CachedFilePath = $this->GetCachedFilePath($Tag, 'src', $FilePath);
-				if ($CachedFilePath === False) continue;
+				if ($CachedFilePath === False) {
+					if ($DeferJavaScript) {
+						$this->DeferJavaScriptFiles[] = $Tag['src'];
+						$RemoveIndex[] = $Index;
+					}
+					continue;
+				}
 				
 				if (!file_exists($CachedFilePath)) {
 					if (!isset($Snoopy)) $Snoopy = Gdn::Factory('Snoopy');
+
+					/*
 					$Snoopy->Submit('http://marijnhaverbeke.nl/uglifyjs', array(
 						'code_url' => '',
 						'download' => '',
 						'js_code' => file_get_contents($FilePath)
 					));
-					if ($Snoopy->error) {
-						if ($Debug) trigger_error($Snoopy->error);
-						$Snoopy->error = '';
-						continue;
-					}
-					file_put_contents($CachedFilePath, $Snoopy->results);
+					$Code =& $Snoopy->results;
+					*/
+
+					// Google Closure Compiler
+					$Snoopy->Submit('http://closure-compiler.appspot.com/compile', array(
+						'js_code' => file_get_contents($FilePath),
+						'output_format' => 'text',
+						'output_info' => 'compiled_code'
+					));
+					$Code =& $Snoopy->results;
+										
+					file_put_contents($CachedFilePath, $Code);
 				}
 				if (!$AllInOne) {
 					$GroupName = self::GetGroupName($FilePath);
@@ -139,7 +153,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		
 		if ($AllInOne) {
 			unset($CombinedJavascript['library']);
-			$RemoveIndex = array(array_keys($CombinedCss), array_keys($CombinedJavascript));
+			$RemoveIndex[] = array(array_keys($CombinedCss), array_keys($CombinedJavascript));
 			// Css
 			$CombinedCss = array_unique($CombinedCss);
 			$CachedFilePath = 'cache/ps/style.' . self::HashSumFiles($CombinedCss) . '.css';
@@ -152,6 +166,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				}
 				file_put_contents($CachedFilePath, $Combined);
 			}
+			
 			$Tags[] = array(
 				HeadModule::TAG_KEY => 'link',
 				'rel' => 'stylesheet',
@@ -169,15 +184,19 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				foreach ($CombinedJavascript as $File) $Combined .= file_get_contents($File) . ";\n";
 				file_put_contents($CachedFilePath, $Combined);
 			}
-		
-			$Tags[] = array(
-				HeadModule::TAG_KEY => 'script',
-				'type' => 'text/javascript',
-				'src' => Asset($CachedFilePath, False, False),
-				//'_path' => $CachedFilePath,
-				HeadModule::SORT_KEY => 99
-			);
-
+			$Src = Asset($CachedFilePath, False, False);
+			// Defer loading of JavaScript
+			if ($DeferJavaScript) {
+				$this->DeferJavaScriptFiles[] = $Src;
+			} else {
+				$Tags[] = array(
+					HeadModule::TAG_KEY => 'script',
+					'type' => 'text/javascript',
+					'src' => $Src,
+					//'_path' => $CachedFilePath,
+					HeadModule::SORT_KEY => 99
+				);
+			}
 			//d($RemoveIndex, Flatten($RemoveIndex), @$CombinedCss, @$CombinedJavascript);
 		} else {
 			if (count($CombinedCss) > 0) {
@@ -218,9 +237,14 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 						file_put_contents($CachedFilePath, $Combined);
 					}
 					
-					$JsTag['src'] = Asset($CachedFilePath, False, False);
-					$JsTag[HeadModule::SORT_KEY] += 1;
-					$Tags[] = $JsTag;
+					$Src = Asset($CachedFilePath, False, False);
+					if ($DeferJavaScript) {
+						$this->DeferJavaScriptFiles[] = $Src;
+					} else {
+						$JsTag['src'] = $Src;
+						$JsTag[HeadModule::SORT_KEY] += 1;
+						$Tags[] = $JsTag;
+					}
 				}
 			}
 		}
@@ -230,14 +254,66 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		$Head->Tags($Tags);
 	}
 	
-	public function Tick_Match_00_Minutes_05_Hours_1_Day_Handler() {
+	/**
+	* This is place before </body> tag.
+	*/
+	public function Base_AfterBody_Handler($Sender) {
+		$DeferJavaScript = ArrayValue('DeferJavaScript', $this->Configuration);
+		if ($DeferJavaScript && count($this->DeferJavaScriptFiles) > 0) {
+			switch ($DeferJavaScript) {
+				case 2: $this->RenderDeferJavaScriptFiles(); break;
+				case 1: 
+				default: $this->RenderScriptTags(); break;
+			}
+		}
+	}
+
+	/**
+	* If DeferJavaScript = TRUE, there is the place where all javascript file loaded
+	* Using snippet: code.google.com/speed/page-speed/docs/payload.html#DeferLoadingJS
+	*/	
+	protected function RenderDeferJavaScriptFiles() {
+		$ArrayCode = "['" . implode("', '", $this->DeferJavaScriptFiles) . "']";
+		echo <<<SCRIPT
+<script type="text/javascript">
+window.onload = function() {
+	var include = function(files) {
+		if (typeof(files) == 'string') files = [files];
+		var onload;
+		var script = document.createElement('script');
+		var file = files.shift();
+		script.setAttribute('type', 'text/javascript');
+		script.setAttribute('src', file);
+		document.body.appendChild(script);
+		if (files.length > 0) {
+			onload = function() { include(files); }
+			script.onreadystatechange = onload;
+			script.onload = onload;
+		}
+	}
+	include($ArrayCode);
+}
+</script>
+SCRIPT;
+	}
+	
+	/**
+	* Write <script> tags.
+	*/
+	protected function RenderScriptTags() {
+		foreach ($this->DeferJavaScriptFiles as $Src) {
+			echo Wrap('', 'script', array('src' => $Src, 'type' => 'text/javascript'));
+		}
+	}
+	
+/*	public function Tick_Match_00_Minutes_05_Hours_1_Day_Handler() {
 		$Directory = new RecursiveDirectoryIterator('cache/ps');
 		foreach (new RecursiveIteratorIterator($Directory) as $File) {
 			$CachedFile = $File->GetRealPath();
 			unlink($CachedFile);
 			Console::Message('Removed ^3%s', $CachedFile);
 		}
-	}
+	}*/
 	
 	public function Setup() {
 		if (!is_dir('cache/ps')) mkdir('cache/ps', 0777, True);

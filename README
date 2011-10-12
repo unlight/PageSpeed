@@ -39,7 +39,7 @@ Serve resources from a consistent URL		[?]
 Serve scaled images							[?]
 Specify a cache validator					[?]
 Specify a character set early				[?]
-Defer loading of JavaScript (Put JavaScript at bottom)		[TODO]
+Defer loading of JavaScript (Put JavaScript at bottom)		[DONE]
 
 WHAT THIS PLUGIN CAN DO?
 ========================
@@ -53,6 +53,7 @@ WHAT THIS PLUGIN CAN DO?
 	
 3. Combine external JavaScript
 	Combined in three groups library, applications and plugins.
+	Or all in one (see configuration section).
 	
 4. Avoid CSS @import
 	If you have custom theme. You may have such style.css, for example:
@@ -80,6 +81,7 @@ WHAT THIS PLUGIN CAN DO?
 		php_value auto_prepend_file "/absolute/path/to/vanilla/plugins/PageSpeed/gzip.handler.php"
 	</FilesMatch>
 
+6. Defer loading of JavaScript
 
 CONFIGURATION (DEFAULTS)
 ========================
@@ -104,6 +106,9 @@ $Configuration['Plugins']['PageSpeed']['SetImageDimensions'] = FALSE;
 
 $Configuration['Plugins']['PageSpeed']['AllInOne'] = False;
 	If True all CSS/Javascript files combined into one file.
+	
+$Configuration['Plugins']['PageSpeed']['DeferJavaScript'] = False;
+	Defer loading of JavaScript (JavaScript at bottom).
 
 POSSIBLE PROBLEMS
 =================
@@ -119,40 +124,22 @@ TODO
 
 CHANGELOG
 =========
-1.6 (unknown date)
+1.70 (12 Oct 2011)
+- new feature: DeferJavaScript
+
+1.60 (unknown date)
 - removed AbsoluteSource()
 - removed SetImageDimensions feature
 
-1.5 (7 Aug 2011)
+1.50 (7 Aug 2011)
 - new config option AllInOne
 - improvements of css processing
 
-1.4 (19 Jun 2011)
+1.40 (19 Jun 2011)
 - set image dimensions
 - loading jqueryui css theme from CDN
 - themes group files moved to library group
 
-1.3 (19 May 2011)
+1.30 (19 May 2011)
 - loading jqueryui from cdn
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
