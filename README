@@ -113,6 +113,12 @@ $Configuration['Plugins']['PageSpeed']['DeferJavaScript'] = False;
 	1 - just put <script> tags at bottom
 	2 - dynamic loading, http://code.google.com/speed/page-speed/docs/payload.html#DeferLoadingJS
 
+$Configuration['Plugins']['PageSpeed']['ParallelizeEnabled'] = False;
+	Enables/disables parallelize downloads.
+	
+$Configuration['Plugins']['PageSpeed']['ParallelizeHosts'] = array('static1.example.com', 'static2.example.com', 'static3.example.com');
+	Parallelize downloads across this hosts.
+
 POSSIBLE PROBLEMS
 =================
 1.	If you installed vanilla into directory you may have problems with images in css.
