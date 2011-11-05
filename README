@@ -1,6 +1,8 @@
 DESCRIPTION
 ===========
-Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules.
+Minimizes payload size (compressing css/js files), minimizes round-trip times 
+(loads JQuery library from CDN, combines external JavaScript/CSS files). 
+Inspired by Google Page Speed rules.
 
 BEFORE INSTALL DISABLE ALL OTHER PLUGINS WHICH DOING THE SAME (such as Minify, etc.)
 
@@ -86,15 +88,17 @@ WHAT THIS PLUGIN CAN DO?
 CONFIGURATION (DEFAULTS)
 ========================
 
-$Configuration['Plugins']['PageSpeed']['IgnoreDebug'] = False;
-	Normally Page Speed do something only on production server. You can change this.
-
 $Configuration['Plugins']['PageSpeed']['MinifyCss'] = True;
 	Compress css code.
+	NOTE: REMOVED SINCE 1.86, replaced by
+		['Plugins']['PageSpeed']['DisableMinifyCss'] (inverted option)
 
+['Plugins']['PageSpeed']['DisableMinifyCss'] = False;
+	Disable compressing css code.
+	
 // Loads desired version of jquery
-$Configuration['Plugins']['PageSpeed']['CDN']['jquery'] = '1.4.1';
-$Configuration['Plugins']['PageSpeed']['CDN']['jqueryui'] = '1.7.1';
+$Configuration['Plugins']['PageSpeed']['CDN']['jquery'] = '1.6';
+$Configuration['Plugins']['PageSpeed']['CDN']['jqueryui'] = '1.8';
 
 $Configuration['Plugins']['PageSpeed']['CDN']['jqueryui-theme'] = 'smoothness';
 	jQueryUI theme name.
@@ -104,10 +108,13 @@ $Configuration['Plugins']['PageSpeed']['SetImageDimensions'] = FALSE;
 	If image attributes height and width not specified, this option enables post-processing
 	and set height/width for all images of entire html content.
 
-$Configuration['Plugins']['PageSpeed']['AllInOne'] = False;
-	If True all CSS/Javascript files combined into one file.
+$Configuration['Plugins']['PageSpeed']['AllInOne'] = 0;
+	Values:
+	1 - all css and javascript files combined into one file
+	2 - minify javascript only
+	0 (Default) - three groups (library, applications, plugins)
 	
-$Configuration['Plugins']['PageSpeed']['DeferJavaScript'] = False;
+$Configuration['Plugins']['PageSpeed']['DeferJavaScript'] = 0;
 	Defer loading of JavaScript (JavaScript at bottom).
 	Values:
 	1 - just put <script> tags at bottom
@@ -133,6 +140,14 @@ TODO
 
 CHANGELOG
 =========
+1.86 (5 Nov 2011)
+- allow turn off plugin
+- new option "Disable compressing css code"
+
+1.80 (28 Oct 2011)
+- GUI settings
+- new way getting cached file (checking version, dont use filemtime() anymore)
+
 1.73 (13 Oct 2011)
 - parallelize downloads
 

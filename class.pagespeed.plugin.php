@@ -3,13 +3,14 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme for details.',
-	'Version' => '1.73',
+	'Version' => '1.86',
 	'Date' => '7 Aug 2011',
 	'Updated' => 'Autumn 2011',
-	'Author' => 'Nobody',
+	'Author' => 'WebDeveloper',
 	'AuthorUrl' => 'https://github.com/search?type=Repositories&language=php&q=PageSpeed',
 	'RequiredApplications' => array('Dashboard' => '>=2.0.17'),
-	'RequiredPlugins' => array('UsefulFunctions' => '>=2.3.60')
+	'RequiredPlugins' => array('UsefulFunctions' => '>=2.3'),
+	'SettingsUrl' => '/settings/pagespeed'
 );
 
 class PageSpeedPlugin implements Gdn_IPlugin {
@@ -22,9 +23,96 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		$this->Configuration = C('Plugins.PageSpeed');
 	}
 	
+	protected static function CleanCache() {
+		if (!(file_exists('cache/ps') && is_dir('cache/ps'))) return;
+		$Directory = new RecursiveDirectoryIterator('cache/ps');
+		foreach (new RecursiveIteratorIterator($Directory) as $File) {
+			$Pathname = $File->GetPathname();
+			unlink($Pathname);
+		}
+	}
+	
+	public function SettingsController_AfterEnablePlugin_Handler() {
+		self::CleanCache();
+	}
+
+	public function SettingsController_PageSpeed_Create($Sender) {
+		$Sender->Permission('Garden.Plugins.Manage');
+		$Sender->SetData('Configuration', $this->Configuration);
+		
+		$Action = GetValue(0, $Sender->RequestArgs);
+		if ('cleancache' == $Action) {
+			self::CleanCache();
+			Redirect('settings/pagespeed');
+		} elseif ('disable' == $Action) {
+			SaveToConfig('EnabledPlugins.PageSpeed', False);
+			Redirect('/dashboard/settings/plugins');
+		} elseif ('switch' == $Action) {
+			$IsDisabled = GetValue('IsDisabled', $this->Configuration);
+			SaveToConfig('Plugins.PageSpeed.IsDisabled', !$IsDisabled);
+			Redirect('settings/pagespeed');
+		}
+		
+		$Sender->AddSideMenu();
+		$Sender->Title('Page Speed');
+		
+		$Validation = new Gdn_Validation();
+		$ConfigurationModel = new Gdn_ConfigurationModel($Validation);
+		$Sender->Form->SetModel($ConfigurationModel);
+		$ConfigurationModel->SetField(array(
+			'Plugins.PageSpeed.AllInOne',
+			'Plugins.PageSpeed.DeferJavaScript',
+			'Plugins.PageSpeed.ParallelizeEnabled',
+			'Plugins.PageSpeed.ParallelizeHosts',
+			'Plugins.PageSpeed.CDN.jquery',
+			'Plugins.PageSpeed.CDN.jqueryui',
+			'Plugins.PageSpeed.CDN.jqueryui-theme',
+			'Plugins.PageSpeed.DisableMinifyCss'
+		));
+		
+		
+		if ($Sender->Form->AuthenticatedPostBack()) {
+			//$Validation->ApplyRule('Plugin.Example.RenderCondition', 'Required');
+			
+			$FormValues = $Sender->Form->FormValues();
+			$Integer = array('Plugins.PageSpeed.AllInOne', 'Plugins.PageSpeed.DeferJavaScript');
+			foreach ($Integer as $Name) settype($FormValues[$Name], 'int');
+			settype($FormValues['Plugins.PageSpeed.ParallelizeEnabled'], 'bool');
+			settype($FormValues['Plugins.PageSpeed.DisableMinifyCss'], 'bool');
+			$ParallelizeHosts = SplitUpString($FormValues['Plugins.PageSpeed.ParallelizeHosts'], ',', 'trim strtolower');
+			if (count($ParallelizeHosts) == 0) {
+				SetValue('Plugins.PageSpeed.ParallelizeHosts', $FormValues, Null);
+				SetValue('Plugins.PageSpeed.ParallelizeEnabled', $FormValues, False);
+			} else {
+				SetValue('Plugins.PageSpeed.ParallelizeHosts', $FormValues, implode(', ', $ParallelizeHosts));
+			}
+			$Sender->Form->FormValues($FormValues);
+			$Sender->Form->Save();
+			$Sender->InformMessage(T('Saved'), array('Sprite' => 'Check', 'CssClass' => 'Dismissable AutoDismiss'));
+
+		} else {
+			$Sender->Form->SetData($ConfigurationModel->Data);
+		}
+
+		$Sender->SetData('GroupingItems', array(
+			'Three groups (library, applications, plugins)',
+			'All css and javascript files combined into one file',
+			'Minify javascript only'
+		));
+		$Sender->SetData('DeferJavaScriptItems', array(
+			0 => 'Disabled',
+			1 => htmlspecialchars('Just put <script> tags at bottom'),
+			2 => 'Dynamic loading (Dangerous! Something may not work)'
+		));
+		
+		$Sender->View = dirname(__FILE__) . DS . 'views' . DS . 'settings.php';
+		$Sender->Render();
+	}
+	
 	public function Base_Render_Before($Sender) {
 		$EnablePostProcessing = 
 			GetValue('ParallelizeEnabled', $this->Configuration)
+			&& !GetValue('IsDisabled', $this->Configuration)
 			&& $Sender->DeliveryMethod() == DELIVERY_METHOD_XHTML
 			&& $Sender->DeliveryType() == DELIVERY_TYPE_ALL 
 			&& $Sender->SyndicationMethod == SYNDICATION_NONE;
@@ -38,64 +126,77 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		if ($this->bRenderInitialized) {
 			$String = ob_get_contents();
 			ob_end_clean();
+			//DebugCheckPoint('StaticParallelizeDownloads 2s');
 			self::StaticParallelizeDownloads($String);
+			//DebugCheckPoint('StaticParallelizeDownloads 2e');
 			echo $String;
 		}
 	}
 	
 	/**
-	* Parallelize downloads across hostnames.
+	* Parallelize downloads across hostnames (version 2).
 	*/
-	protected function StaticParallelizeDownloads(&$String) {
-		
-		if (substr(ltrim($String), 0, 5) != '<?xml') $String = '<?xml version="1.0" encoding="UTF-8"?'. ">\n" . $String;
-		$DOMDocument = DOMDocument::LoadXML($String, LIBXML_NOERROR);
-		if ($DOMDocument === False) return $String;
-		
+	protected static function StaticParallelizeDownloads(&$String) {
+		preg_match_all("/src=\"(.*)\"/U", $String, $Images);
+		preg_match_all("/background:\s*url\((\"|')(.*)\\1\)/U", $String, $Backgrounds);
+		preg_match_all("/background-image:\s*url\((\"|')(.*)\\1\)/U", $String, $BackgroundImages);
+
+		$Images = array_merge($Images[1], $Backgrounds[2], $BackgroundImages[2]);
+
 		$RequestHost = Gdn::Request()->Host();
 		$Domain = Gdn::Request()->Domain();
 		$Scheme = parse_url($Domain, PHP_URL_SCHEME);
 		$ParallelizeHosts = C('Plugins.PageSpeed.ParallelizeHosts');
-		if (!is_array($ParallelizeHosts) || count($ParallelizeHosts) == 0) throw new RuntimeException('ParallelizeHosts is not properly configured.');
+		if (!is_array($ParallelizeHosts)) $ParallelizeHosts = array_map('trim', explode(',', $ParallelizeHosts));
+		if (count($ParallelizeHosts) == 0) throw new RuntimeException('ParallelizeHosts is not properly configured.');
 		$ParallelizeHostsCount = count($ParallelizeHosts);
 		$Replace = array();
-
-		$DomNodeList = $DOMDocument->GetElementsByTagName('img');
-		for ($i = $DomNodeList->length - 1; $i >= 0; $i--) {
-			$Node = $DomNodeList->Item($i);
-			$Src = $Node->GetAttribute('src');
+		
+		for ($Count = count($Images), $i = 0; $i < $Count; $i++) {
+			$Src =& $Images[$i];
+			if (substr($Src, 0, 2) == '//') $Src = $Scheme . ':' . $Src;
 			$ParseUrl = parse_url($Src);
 			if (!isset($ParseUrl['host']) || $RequestHost == $ParseUrl['host']) {
-				$Hash = sprintf('%u', crc32($Src));
+				$Path = $ParseUrl['path'];
+				$Hash = sprintf('%u', crc32($Path));
 				$ServerNum = $Hash % $ParallelizeHostsCount;
-				$NewSrc = GetValue('scheme', $ParseUrl, $Scheme) . '://' . $ParallelizeHosts[$ServerNum] . $ParseUrl['path'];
-				$Replace[$Src] = $NewSrc;
+				$NewSrc = GetValue('scheme', $ParseUrl, $Scheme) . '://' . $ParallelizeHosts[$ServerNum] . $Path;
+				if (!isset($Replace[$Src])) $Replace[$Src] = $NewSrc;
 			}
 		}
-		if (count($Replace) > 0) $String = str_replace(array_keys($Replace), array_values($Replace), $String);
+		if (count($Replace) > 0) {
+			$String = str_replace(array_keys($Replace), array_values($Replace), $String);
+		}
+		return $String;
 	}
 	
 	protected static function ChangeBackgroundUrl(&$CssText, $FilePath) {
+		static $ParallelizeEnabled;
 		// Change background image url in css
 		if (preg_match_all('/url\((.+?)\)/', $CssText, $Match)) {
-			foreach($Match[1] as $N => $UrlImage) {
+			$Replace = array();
+			foreach ($Match[1] as $N => $UrlImage) {
 				$UrlImage = trim($UrlImage, '"\'');
 				if ($UrlImage[0] == '/' || self::IsUrl($UrlImage) || substr($UrlImage, 0, 5) == 'data:') continue;
 				$File = dirname($FilePath).'/'.$UrlImage;
 				if (!file_exists($File)) {
-					if (C('Debug')) trigger_error("Error while fix background image url path. No such file ($File).");
+					if (Debug()) trigger_error("Error while fix background image url path. No such file ($File).");
 				}
 				$Asset = Asset(substr($File, strlen(PATH_ROOT)+1));
-				$CssText = str_replace($Match[0][$N], "url($Asset)", $CssText);
+				$Replace[$Match[0][$N]] = "url('$Asset')";
+			}
+			if (count($Replace) > 0) {
+				$CssText = str_replace(array_keys($Replace), array_values($Replace), $CssText);
 			}
 		}
+		if ($ParallelizeEnabled === Null) $ParallelizeEnabled = C('Plugins.PageSpeed.ParallelizeEnabled');
+		if ($ParallelizeEnabled) self::StaticParallelizeDownloads($CssText);
 	}
 	
 	public function HeadModule_BeforeToString_Handler($Head) {
 
 		$Configuration =& $this->Configuration;
-		$Debug = C('Debug');
-		if ($Debug && !GetValue('IgnoreDebug', $Configuration)) return;
+		if (GetValue('IsDisabled', $this->Configuration)) return;
 
 		$Tags = $Head->Tags();
 		usort($Tags, array('HeadModule', 'TagCmp')); // BeforeToString fires before sort
@@ -123,21 +224,12 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				if (!file_exists($CachedFilePath)) {
 					if (!isset($Snoopy)) $Snoopy = Gdn::Factory('Snoopy');
 
-					/*
 					$Snoopy->Submit('http://marijnhaverbeke.nl/uglifyjs', array(
 						'code_url' => '',
 						'download' => '',
 						'js_code' => file_get_contents($FilePath)
 					));
-					*/
-
-					// Google Closure Compiler
-					$Snoopy->Submit('http://closure-compiler.appspot.com/compile', array(
-						'js_code' => file_get_contents($FilePath),
-						'output_format' => 'text',
-						'output_info' => 'compiled_code'
-					));
-										
+					
 					file_put_contents($CachedFilePath, trim($Snoopy->results));
 				}
 				if (!$AllInOne) {
@@ -161,7 +253,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 					$Css = file_get_contents($FilePath);
 					$CssText = self::ProcessImportCssText($Css, $FilePath);
 					if ($CssText === False) $CssText = $Css;
-					if (GetValue('MinifyCss', $Configuration, True)) $CssText = self::MinifyCssText($CssText);
+					if (!GetValue('DisableMinifyCss', $Configuration)) $CssText = self::MinifyCssText($CssText);
 					self::ChangeBackgroundUrl($CssText, $FilePath);
 					// TODO: COMBINE CSS (WE MUST CHECK MEDIA)
 					// style.css + custom.css, admin.css + customadmin.css
@@ -182,9 +274,22 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			}
 		}
 		
-		if ($AllInOne) {
+		if ($AllInOne == 2) {
+			// Js
 			unset($CombinedJavascript['library']);
-			$RemoveIndex[] = array(array_keys($CombinedCss), array_keys($CombinedJavascript));
+			foreach ($CombinedJavascript as $Index => $Src) {
+				$NewSrc = Asset($Src, False, False);
+				if ($DeferJavaScript) {
+					$RemoveIndex[] = $Index;
+					$this->DeferJavaScriptFiles[] = $NewSrc;
+				} else $Tags[$Index]['src'] = $NewSrc;
+			}
+			// Css
+			foreach ($CombinedCss as $Index => $Src) {
+				$Tags[$Index]['href'] = Asset($Src, False, False);
+			}
+		} elseif ($AllInOne) {
+			$RemoveIndex[] = array_keys($CombinedCss);
 			// Css
 			$CombinedCss = array_unique($CombinedCss);
 			$CachedFilePath = 'cache/ps/style.' . self::HashSumFiles($CombinedCss) . '.css';
@@ -208,6 +313,8 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			);
 
 			// Js
+			unset($CombinedJavascript['library']);
+			$RemoveIndex[] = array_keys($CombinedJavascript);
 			$CombinedJavascript = array_unique($CombinedJavascript);
 			$CachedFilePath = 'cache/ps/functions.' . self::HashSumFiles($CombinedJavascript) . '.js';
 			if (!file_exists($CachedFilePath)) {
@@ -231,7 +338,6 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			//d($RemoveIndex, Flatten($RemoveIndex), @$CombinedCss, @$CombinedJavascript);
 		} else {
 			if (count($CombinedCss) > 0) {
-				// TODO: array_unique
 				foreach ($CombinedCss as $Group => $Files) {
 					$RemoveIndex[] = array_keys($Files);
 					$Files = array_unique($Files);
@@ -309,10 +415,10 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 <script type="text/javascript">
 window.onload = function() {
 	var include = function(files) {
-		if (typeof(files) == 'string') files = [files];
 		var onload;
 		var script = document.createElement('script');
 		var file = files.shift();
+		if (typeof files == 'string') files = [files];
 		script.setAttribute('type', 'text/javascript');
 		script.setAttribute('src', file);
 		document.body.appendChild(script);
@@ -333,22 +439,12 @@ SCRIPT;
 	*/
 	protected function RenderScriptTags() {
 		foreach ($this->DeferJavaScriptFiles as $Src) {
-			echo Wrap('', 'script', array('src' => $Src, 'type' => 'text/javascript'));
+			echo "\n", Wrap('', 'script', array('src' => $Src, 'type' => 'text/javascript'));
 		}
 	}
 	
-/*	public function Tick_Match_00_Minutes_05_Hours_1_Day_Handler() {
-		$Directory = new RecursiveDirectoryIterator('cache/ps');
-		foreach (new RecursiveIteratorIterator($Directory) as $File) {
-			$CachedFile = $File->GetRealPath();
-			unlink($CachedFile);
-			Console::Message('Removed ^3%s', $CachedFile);
-		}
-	}*/
-	
 	public function Setup() {
 		if (!is_dir('cache/ps')) mkdir('cache/ps', 0777, True);
-		
 	}
 	
 	protected function GetCachedFilePath(&$Tag, $FileKey, &$FilePath) {
@@ -363,18 +459,18 @@ SCRIPT;
 		// if (substr($Basename, 0, 6) == 'custom') d($Tags, $Basename);	
 		switch ($Basename) {
 			case 'jquery.js': {
-				$Version = GetValueR('CDN.jquery', $this->Configuration, '1.4.2');
+				$Version = GetValueR('CDN.jquery', $this->Configuration, '1.6');
 				$Url = 'http://ajax.googleapis.com/ajax/libs/jquery/'.$Version.'/jquery.min.js';
 				return False;
 			}
-			//case 'jquery.ui.packed.js': 
+			//case 'jquery.ui.packed.js': // TODO: MAYBE
 			case 'jqueryui.js': {
-				$Version = GetValueR('CDN.jqueryui', $this->Configuration, '1.7.1');
+				$Version = GetValueR('CDN.jqueryui', $this->Configuration, '1.8');
 				$Url = 'http://ajax.googleapis.com/ajax/libs/jqueryui/'.$Version.'/jquery-ui.min.js';
 				return False;
 			}
 			case 'jquery-ui.css': {
-				$Version = GetValueR('CDN.jqueryui', $Configuration, '1.7.1');
+				$Version = GetValueR('CDN.jqueryui', $Configuration, '1.8');
 				$Theme = GetValueR('CDN.jqueryui-theme', $Configuration, 'smoothness');
 				$Url = 'http://ajax.googleapis.com/ajax/libs/jqueryui/'.$Version.'/themes/'.$Theme.'/jquery-ui.css';
 				return False;
@@ -382,8 +478,7 @@ SCRIPT;
 			default: // Nothing
 		}
 		
-		$Hash = sprintf('%u', crc32($FilePath.filemtime($FilePath)));
-		$CachedFilePath = "cache/ps/{$Hash}.{$Basename}";
+		$CachedFilePath = 'cache/ps/' . sprintf('%u', crc32($Url)) . '.' . $Basename;
 		return $CachedFilePath;
 	}
 	
@@ -410,7 +505,6 @@ SCRIPT;
 		$css = str_replace( '} ', '}', $css );
 		$css = str_replace( ';}', "}\n", $css );
 		$css = trim($css);
-		// TODO: REMOVE EMPTY RULES
 		return $css;
 	}
 	
@@ -550,9 +644,5 @@ SCRIPT;
 	}
 	
 }
-
-
-
-
 
 
