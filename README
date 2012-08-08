@@ -87,26 +87,15 @@ WHAT THIS PLUGIN CAN DO?
 
 CONFIGURATION (DEFAULTS)
 ========================
-
-$Configuration['Plugins']['PageSpeed']['MinifyCss'] = True;
-	Compress css code.
-	NOTE: REMOVED SINCE 1.86, replaced by
-		['Plugins']['PageSpeed']['DisableMinifyCss'] (inverted option)
-
-['Plugins']['PageSpeed']['DisableMinifyCss'] = False;
+$Configuration['Plugins']['PageSpeed']['DisableMinifyCss'] = False;
 	Disable compressing css code.
 	
-// Loads desired version of jquery
 $Configuration['Plugins']['PageSpeed']['CDN']['jquery'] = '1.6';
 $Configuration['Plugins']['PageSpeed']['CDN']['jqueryui'] = '1.8';
+	Loads desired version of jQuery and jQueryUI.
 
 $Configuration['Plugins']['PageSpeed']['CDN']['jqueryui-theme'] = 'smoothness';
 	jQueryUI theme name.
-
-$Configuration['Plugins']['PageSpeed']['SetImageDimensions'] = FALSE;
-	NOTE! REMOVED SINCE 1.60
-	If image attributes height and width not specified, this option enables post-processing
-	and set height/width for all images of entire html content.
 
 $Configuration['Plugins']['PageSpeed']['AllInOne'] = 0;
 	Values:
@@ -125,6 +114,19 @@ $Configuration['Plugins']['PageSpeed']['ParallelizeEnabled'] = False;
 	
 $Configuration['Plugins']['PageSpeed']['ParallelizeHosts'] = array('static1.example.com', 'static2.example.com', 'static3.example.com');
 	Parallelize downloads across this hosts.
+	
+$Configuration['Plugins']['PageSpeed']['JoinLocaleSources'] = False;
+	Allow join locale source files to one (server side optimization).
+	
+$Configuration['Plugins']['PageSpeed']['SetImageDimensions'] = False;
+	NOTE! REMOVED SINCE 1.60
+	If image attributes height and width not specified, this option enables post-processing
+	and set height/width for all images of entire html content.	
+	
+$Configuration['Plugins']['PageSpeed']['MinifyCss'] = True;
+	Compress css code.
+	NOTE: REMOVED SINCE 1.86.
+	Replaced by $Configuration['Plugins']['PageSpeed']['DisableMinifyCss'] (inverted)
 
 POSSIBLE PROBLEMS
 =================
@@ -133,16 +135,25 @@ POSSIBLE PROBLEMS
 
 2.	Remote compression javascript code service can be down.
 
-TODO
-====
-- SWFObject
-
 
 CHANGELOG
 =========
+1.90 (23 Dec 2011)
+- checking mtime files in cache directory
+
+1.89 (20 Dec 2011)
+- removed hardcoded Cdns in 2.1a6
+
+1.88 (7 Dec 2011)
+- fixed regexp in parallelize downloads (only images and scripts)
+
+1.87 (25 Nov 2011)
+- handle multiple javascript onload
+
 1.86 (5 Nov 2011)
 - allow turn off plugin
 - new option "Disable compressing css code"
+- allow join locale source files to one (server side optimization)
 
 1.80 (28 Oct 2011)
 - GUI settings

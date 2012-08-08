@@ -74,6 +74,13 @@ echo Anchor(T('Disable plugin'), '/settings/pagespeed/disable', 'Button SmallBut
 	?>
 </li>
 
+<li>
+	<?php 
+	echo $this->Form->Label('Join Locale files', 'Plugins.PageSpeed.JoinLocaleSources');
+	echo $this->Form->CheckBox('Plugins.PageSpeed.JoinLocaleSources');
+	?>
+</li>
+
 </ul>
 
 <?php echo $this->Form->Button('Save'); ?>

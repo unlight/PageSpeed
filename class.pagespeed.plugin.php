@@ -3,13 +3,13 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme for details.',
-	'Version' => '1.86',
+	'Version' => '1.90',
 	'Date' => '7 Aug 2011',
 	'Updated' => 'Autumn 2011',
 	'Author' => 'WebDeveloper',
 	'AuthorUrl' => 'https://github.com/search?type=Repositories&language=php&q=PageSpeed',
 	'RequiredApplications' => array('Dashboard' => '>=2.0.17'),
-	'RequiredPlugins' => array('UsefulFunctions' => '>=2.3'),
+	'RequiredPlugins' => array('UsefulFunctions' => '>=3.0'),
 	'SettingsUrl' => '/settings/pagespeed'
 );
 
@@ -18,9 +18,45 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 	private $bRenderInitialized = False;
 	private $Configuration = array();
 	protected $DeferJavaScriptFiles = array();
+	private $CachePathLength;
 	
 	public function __construct() {
 		$this->Configuration = C('Plugins.PageSpeed');
+		if (ArrayValue('JoinLocaleSources', $this->Configuration)) $this->JoinLocaleSourceFiles();
+		$this->CachePathLength = strlen(PATH_CACHE);
+	}
+	
+	/**
+	* Clear stupid hardcoded stuff. 
+	* 
+	*/
+	public function Base_AfterJsCdns_Handler($Sender) {
+		$Cdns =& $Sender->EventArguments['Cdns'];
+		$Cdns = array();
+	}
+
+	protected function JoinLocaleSourceFiles() {
+		$LocaleName = Gdn::Locale()->Current();
+		//$SafeLocaleName = preg_replace('/([^\w\d_-])/', '', $LocaleName);
+		$JoinedLocalesFile = sprintf('%s/PageSpeed-%s-joined-locales.php', PATH_CACHE, $LocaleName);
+		if (!file_exists($JoinedLocalesFile)) {
+			$CacheLocaleMap = PATH_CACHE . '/locale_map.ini';
+			$ParsedIni = parse_ini_file($CacheLocaleMap, True);
+			$LocaleSourceFiles = ArrayValue($LocaleName, $ParsedIni);
+			if ($LocaleSourceFiles !== False) {
+				$Definition = array();
+				foreach ($LocaleSourceFiles as $File) if (file_exists($File)) include $File;
+				$Content = var_export($Definition, True);
+				$Content = "<?php if (!defined('APPLICATION')) die();\n\$Definition = $Content;";
+				if (count($Definition) == 0) {
+					// Looks like joined file was deleted :/
+					return unlink($CacheLocaleMap);
+				}
+				file_put_contents($JoinedLocalesFile, $Content);
+				Gdn_LibraryMap::$Caches['locale']['cache'][$LocaleName] = array($JoinedLocalesFile);
+				Gdn_LibraryMap::SaveCache('locale');
+			}
+		}
 	}
 	
 	protected static function CleanCache() {
@@ -30,12 +66,9 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			$Pathname = $File->GetPathname();
 			unlink($Pathname);
 		}
+		foreach (glob(PATH_CACHE.'/PageSpeed*') as $File) unlink($File);
 	}
 	
-	public function SettingsController_AfterEnablePlugin_Handler() {
-		self::CleanCache();
-	}
-
 	public function SettingsController_PageSpeed_Create($Sender) {
 		$Sender->Permission('Garden.Plugins.Manage');
 		$Sender->SetData('Configuration', $this->Configuration);
@@ -67,18 +100,18 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			'Plugins.PageSpeed.CDN.jquery',
 			'Plugins.PageSpeed.CDN.jqueryui',
 			'Plugins.PageSpeed.CDN.jqueryui-theme',
-			'Plugins.PageSpeed.DisableMinifyCss'
+			'Plugins.PageSpeed.DisableMinifyCss',
+			'Plugins.PageSpeed.JoinLocaleSources',
 		));
-		
 		
 		if ($Sender->Form->AuthenticatedPostBack()) {
 			//$Validation->ApplyRule('Plugin.Example.RenderCondition', 'Required');
-			
 			$FormValues = $Sender->Form->FormValues();
-			$Integer = array('Plugins.PageSpeed.AllInOne', 'Plugins.PageSpeed.DeferJavaScript');
-			foreach ($Integer as $Name) settype($FormValues[$Name], 'int');
+			settype($FormValues['Plugins.PageSpeed.AllInOne'], 'int');
+			settype($FormValues['Plugins.PageSpeed.DeferJavaScript'], 'int');
 			settype($FormValues['Plugins.PageSpeed.ParallelizeEnabled'], 'bool');
 			settype($FormValues['Plugins.PageSpeed.DisableMinifyCss'], 'bool');
+			settype($FormValues['Plugins.PageSpeed.JoinLocaleSources'], 'bool');
 			$ParallelizeHosts = SplitUpString($FormValues['Plugins.PageSpeed.ParallelizeHosts'], ',', 'trim strtolower');
 			if (count($ParallelizeHosts) == 0) {
 				SetValue('Plugins.PageSpeed.ParallelizeHosts', $FormValues, Null);
@@ -137,7 +170,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 	* Parallelize downloads across hostnames (version 2).
 	*/
 	protected static function StaticParallelizeDownloads(&$String) {
-		preg_match_all("/src=\"(.*)\"/U", $String, $Images);
+		preg_match_all("/src=\"(.+\.(js|jp[e]?g|png|gif|bmp))\"/U", $String, $Images);
 		preg_match_all("/background:\s*url\((\"|')(.*)\\1\)/U", $String, $Backgrounds);
 		preg_match_all("/background-image:\s*url\((\"|')(.*)\\1\)/U", $String, $BackgroundImages);
 
@@ -180,7 +213,8 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				if ($UrlImage[0] == '/' || self::IsUrl($UrlImage) || substr($UrlImage, 0, 5) == 'data:') continue;
 				$File = dirname($FilePath).'/'.$UrlImage;
 				if (!file_exists($File)) {
-					if (Debug()) trigger_error("Error while fix background image url path. No such file ($File).");
+					if (Debug()) trigger_error("Error while fix background image url path in '$FilePath', no such file ($File)");
+					continue;
 				}
 				$Asset = Asset(substr($File, strlen(PATH_ROOT)+1));
 				$Replace[$Match[0][$N]] = "url('$Asset')";
@@ -413,6 +447,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		$ArrayCode = "['" . implode("', '", $this->DeferJavaScriptFiles) . "']";
 		echo <<<SCRIPT
 <script type="text/javascript">
+var windowonload = window.onload;
 window.onload = function() {
 	var include = function(files) {
 		var onload;
@@ -426,6 +461,8 @@ window.onload = function() {
 			onload = function() { include(files); }
 			script.onreadystatechange = onload;
 			script.onload = onload;
+		} else {
+			if (typeof windowonload == 'function') windowonload();
 		}
 	}
 	include($ArrayCode);
@@ -477,8 +514,10 @@ SCRIPT;
 			}
 			default: // Nothing
 		}
-		
-		$CachedFilePath = 'cache/ps/' . sprintf('%u', crc32($Url)) . '.' . $Basename;
+		$CrcPx = '';
+		if (PATH_CACHE == substr($FilePath, 0, $this->CachePathLength)) $CrcPx = md5_file($FilePath);
+		$Suffix = sprintf('%u', crc32($CrcPx . $Url));
+		$CachedFilePath = "cache/ps/{$Suffix}.{$Basename}";
 		return $CachedFilePath;
 	}
 	
@@ -562,46 +601,27 @@ SCRIPT;
 		return $NewHash;
 	}
 	
-	/*
-	* Loads/saves image dimension
-	*/
-	protected static function ImageDimensions($NewImageDimensions = Null) {
-		$CacheFile = PATH_CACHE . '/image_dimensions.ini';
-		if ($NewImageDimensions !== Null) {
-			$PhpCode = "<?php\n\$_ = " . var_export($NewImageDimensions, True) . ';';
-			return file_put_contents($CacheFile, $PhpCode);
-		}
-		$_ = array();
-		if (file_exists($CacheFile)) include $CacheFile;
-		return $_;
+	public function SettingsController_AfterEnablePlugin_Handler() {
+		self::CleanCache();
+	}
+
+	public function SettingsController_AfterDisablePlugin_Handler() {
+		self::CleanCache();
 	}
 	
-	protected static function StaticPhpQueryReplace(&$String) {
-		
-		$ImageDimensions = self::ImageDimensions();
-		$Domain = Gdn::Request()->Domain();
-		
-		$Doc = PqDocument($String, array('FixHtml' => False));
-		foreach (Pq('img[src]') as $ImgNode) {
-			$PqImg = Pq($ImgNode);
-			if (!$PqImg->Attr('width') && !$PqImg->Attr('height')) {
-				// TODO: DONT USE AbsoluteSource() for relative paths
-				$Src = AbsoluteSource(trim($PqImg->Attr('src'), '/'), $Domain);
-				$CrcKey = crc32($Src);
-				if (!array_key_exists($CrcKey, $ImageDimensions)) {
-					$ImageSize = getimagesize($Src);
-					$ImageDimensions[$CrcKey] = array($ImageSize[0], $ImageSize[1], '_src' => $Src);
-				} else {
-					$ImageSize = $ImageDimensions[$CrcKey];
-				}
-				$PqImg->Attr('width', $ImageSize[0]);
-				$PqImg->Attr('height', $ImageSize[1]);
-			}
-		}
-		// Save cache.
-		self::ImageDimensions($ImageDimensions);
-		$String = $Doc->document->saveXML();
+	public function SettingsController_AfterEnableApplication_Handler() {
+		self::CleanCache();
 	}
+	
+	public function SettingsController_AfterDisableApplication_Handler() {
+		self::CleanCache();
+	}
+	
+	public function SettingsController_AfterEnableTheme_Handler() {
+		self::CleanCache();
+	}
+	
+	// DEPRECATED
 	
 	protected static function StaticDomDocumentReplace(&$String) {
 		
@@ -641,6 +661,47 @@ SCRIPT;
 		//$DOMDocument->formatOutput = True;
 		//$String = $DOMDocument->saveXML(Null, LIBXML_NOXMLDECL | LIBXML_NOENT);
 		//d($String);
+	}
+	
+	/*
+	* Loads/saves image dimension
+	*/
+	protected static function ImageDimensions($NewImageDimensions = Null) {
+		$CacheFile = PATH_CACHE . '/image_dimensions.ini';
+		if ($NewImageDimensions !== Null) {
+			$PhpCode = "<?php\n\$_ = " . var_export($NewImageDimensions, True) . ';';
+			return file_put_contents($CacheFile, $PhpCode);
+		}
+		$_ = array();
+		if (file_exists($CacheFile)) include $CacheFile;
+		return $_;
+	}
+	
+	protected static function StaticPhpQueryReplace(&$String) {
+		
+		$ImageDimensions = self::ImageDimensions();
+		$Domain = Gdn::Request()->Domain();
+		
+		$Doc = PqDocument($String, array('FixHtml' => False));
+		foreach (Pq('img[src]') as $ImgNode) {
+			$PqImg = Pq($ImgNode);
+			if (!$PqImg->Attr('width') && !$PqImg->Attr('height')) {
+				// TODO: DONT USE AbsoluteSource() for relative paths
+				$Src = AbsoluteSource(trim($PqImg->Attr('src'), '/'), $Domain);
+				$CrcKey = crc32($Src);
+				if (!array_key_exists($CrcKey, $ImageDimensions)) {
+					$ImageSize = getimagesize($Src);
+					$ImageDimensions[$CrcKey] = array($ImageSize[0], $ImageSize[1], '_src' => $Src);
+				} else {
+					$ImageSize = $ImageDimensions[$CrcKey];
+				}
+				$PqImg->Attr('width', $ImageSize[0]);
+				$PqImg->Attr('height', $ImageSize[1]);
+			}
+		}
+		// Save cache.
+		self::ImageDimensions($ImageDimensions);
+		$String = $Doc->document->saveXML();
 	}
 	
 }
