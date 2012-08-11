@@ -138,6 +138,10 @@ POSSIBLE PROBLEMS
 
 CHANGELOG
 =========
+1.91 (10 Aug 2012)
+- fixed importing css url
+- removed feature join locale sources
+
 1.90 (23 Dec 2011)
 - checking mtime files in cache directory
 

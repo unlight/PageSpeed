@@ -3,9 +3,8 @@
 $PluginInfo['PageSpeed'] = array(
 	'Name' => 'Page Speed',
 	'Description' => 'Minimizes payload size (compressing css/js files), minimizes round-trip times (loads JQuery library from CDN, combines external JavaScript/CSS files). Inspired by Google Page Speed rules. See readme for details.',
-	'Version' => '1.90',
-	'Date' => '7 Aug 2011',
-	'Updated' => 'Autumn 2011',
+	'Version' => '1.91',
+	'Date' => '10 Aug 2012',
 	'Author' => 'WebDeveloper',
 	'AuthorUrl' => 'https://github.com/search?type=Repositories&language=php&q=PageSpeed',
 	'RequiredApplications' => array('Dashboard' => '>=2.0.17'),
@@ -22,7 +21,6 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 	
 	public function __construct() {
 		$this->Configuration = C('Plugins.PageSpeed');
-		if (ArrayValue('JoinLocaleSources', $this->Configuration)) $this->JoinLocaleSourceFiles();
 		$this->CachePathLength = strlen(PATH_CACHE);
 	}
 	
@@ -35,30 +33,6 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 		$Cdns = array();
 	}
 
-	protected function JoinLocaleSourceFiles() {
-		$LocaleName = Gdn::Locale()->Current();
-		//$SafeLocaleName = preg_replace('/([^\w\d_-])/', '', $LocaleName);
-		$JoinedLocalesFile = sprintf('%s/PageSpeed-%s-joined-locales.php', PATH_CACHE, $LocaleName);
-		if (!file_exists($JoinedLocalesFile)) {
-			$CacheLocaleMap = PATH_CACHE . '/locale_map.ini';
-			$ParsedIni = parse_ini_file($CacheLocaleMap, True);
-			$LocaleSourceFiles = ArrayValue($LocaleName, $ParsedIni);
-			if ($LocaleSourceFiles !== False) {
-				$Definition = array();
-				foreach ($LocaleSourceFiles as $File) if (file_exists($File)) include $File;
-				$Content = var_export($Definition, True);
-				$Content = "<?php if (!defined('APPLICATION')) die();\n\$Definition = $Content;";
-				if (count($Definition) == 0) {
-					// Looks like joined file was deleted :/
-					return unlink($CacheLocaleMap);
-				}
-				file_put_contents($JoinedLocalesFile, $Content);
-				Gdn_LibraryMap::$Caches['locale']['cache'][$LocaleName] = array($JoinedLocalesFile);
-				Gdn_LibraryMap::SaveCache('locale');
-			}
-		}
-	}
-	
 	protected static function CleanCache() {
 		if (!(file_exists('cache/ps') && is_dir('cache/ps'))) return;
 		$Directory = new RecursiveDirectoryIterator('cache/ps');
@@ -66,7 +40,10 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			$Pathname = $File->GetPathname();
 			unlink($Pathname);
 		}
-		foreach (glob(PATH_CACHE.'/PageSpeed*') as $File) unlink($File);
+		$FileList = glob(PATH_CACHE.'/PageSpeed*');
+		if (is_array($FileList)) {
+			foreach ($FileList as $File) unlink($File);
+		}
 	}
 	
 	public function SettingsController_PageSpeed_Create($Sender) {
@@ -100,8 +77,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			'Plugins.PageSpeed.CDN.jquery',
 			'Plugins.PageSpeed.CDN.jqueryui',
 			'Plugins.PageSpeed.CDN.jqueryui-theme',
-			'Plugins.PageSpeed.DisableMinifyCss',
-			'Plugins.PageSpeed.JoinLocaleSources',
+			'Plugins.PageSpeed.DisableMinifyCss'
 		));
 		
 		if ($Sender->Form->AuthenticatedPostBack()) {
@@ -111,7 +87,6 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 			settype($FormValues['Plugins.PageSpeed.DeferJavaScript'], 'int');
 			settype($FormValues['Plugins.PageSpeed.ParallelizeEnabled'], 'bool');
 			settype($FormValues['Plugins.PageSpeed.DisableMinifyCss'], 'bool');
-			settype($FormValues['Plugins.PageSpeed.JoinLocaleSources'], 'bool');
 			$ParallelizeHosts = SplitUpString($FormValues['Plugins.PageSpeed.ParallelizeHosts'], ',', 'trim strtolower');
 			if (count($ParallelizeHosts) == 0) {
 				SetValue('Plugins.PageSpeed.ParallelizeHosts', $FormValues, Null);
@@ -213,7 +188,7 @@ class PageSpeedPlugin implements Gdn_IPlugin {
 				if ($UrlImage[0] == '/' || self::IsUrl($UrlImage) || substr($UrlImage, 0, 5) == 'data:') continue;
 				$File = dirname($FilePath).'/'.$UrlImage;
 				if (!file_exists($File)) {
-					if (Debug()) trigger_error("Error while fix background image url path in '$FilePath', no such file ($File)");
+					if (Debug()) trigger_error("Error while fix background image url path in '$FilePath', no such file ($File)", E_USER_WARNING);
 					continue;
 				}
 				$Asset = Asset(substr($File, strlen(PATH_ROOT)+1));
@@ -557,13 +532,20 @@ SCRIPT;
 		$Replace = array();
 		foreach ($CssFiles as $N => $Filename) {
 			$Filename = trim($Filename, '"\'');
-			if ($Filename{0} == '/') {
+			$IsUrl = False;
+			if (self::IsUrl($Filename) === True) {
+				// Do nothing.
+				$IsUrl = True;
+				$ImportFilepath = $Filename;
+			} elseif ($Filename{0} == '/') {
 				$ImportFilepath = PrefixString($DocRoot, $Filename);
 			} else {
 				// relative path
 				$ImportFilepath = dirname($Filepath) . DS . $Filename;
-			}			
-			if (!file_exists($ImportFilepath)) trigger_error("File not found ($ImportFilepath)");
+			}
+			if (!$IsUrl && !file_exists($ImportFilepath)) {
+				trigger_error("File not found ($ImportFilepath)", E_USER_WARNING);
+			}
 			$ImportedCss = file_get_contents($ImportFilepath);
 			self::ChangeBackgroundUrl($ImportedCss, $ImportFilepath);
 			$ImportMatch = $Match[0][$N];
